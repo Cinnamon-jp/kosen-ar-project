@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="./src/index.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>kosen-ar-project</title>
+
+    <!--CDNインポート-->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@latest/dist/tf-backend-webgpu.min.js"></script>
+
+  </head>
+
+  <body>
+    <div id="container">
+      <video
+        id="video"
+        autoplay
+        playsinline
+      ></video>
+      <canvas
+        id="canvas"
+      ></canvas>
+      <button
+        id="capture"
+      ></button>
+    </div>
+    
+    <script type="module" src="./src/index.ts"></script>
+  </body>
+</html>
