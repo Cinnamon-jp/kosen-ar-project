@@ -21,7 +21,7 @@ export default function takePicture(): void {
     const dataUrl = canvas.toDataURL("image/png");
     const link = document.createElement("a");
     link.href = dataUrl;
-    link.download = `capture-${new Date().toISOString()}.png`;  // ファイル名の生成
+    link.download = `capture-${new Date().toISOString()}.png`; // ファイル名の生成
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

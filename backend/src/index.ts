@@ -1,8 +1,12 @@
 import express from "express";
+import cors from "cors";
+
 const app = express();
 const port = 3000;
 
-app.use(express.static("./models"));
+app.use(cors());
+
+app.use("/models", express.static("./models"));
 
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);

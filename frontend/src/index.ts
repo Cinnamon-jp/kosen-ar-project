@@ -7,11 +7,19 @@ export const GET_video = (): HTMLVideoElement => video;
 export const GET_canvas = (): HTMLCanvasElement => canvas;
 export const GET_captureButton = (): HTMLButtonElement => captureButton;
 
-// 関数インポート
 import startCamera from "./functions/startCamera.ts";
 import takePicture from "./functions/takePicture.ts";
 
-document.addEventListener("DOMContentLoaded", () => {
+const ONNX_MODEL_URL = "http://localhost:3000/models/yolo11n.onnx";
+const TF_MODEL_URL ="http://localhost:3000/models/yolo11n_web_model/model.json";
+
+try {
     startCamera();
-    captureButton.addEventListener("click", takePicture);
-});
+} catch (error) {
+    console.error(
+        "カメラまたはモデルの読み込み中にエラーが発生しました:",
+        error
+    );
+}
+
+captureButton.addEventListener("click", takePicture);
