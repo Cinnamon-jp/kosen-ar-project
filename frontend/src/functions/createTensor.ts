@@ -19,7 +19,7 @@ export default function createTensor(): ort.Tensor {
     const floatArray = new Float32Array(numPixels * 3);
     let j = 0;
     for (let i = 0; i < data.length; i += 4) {
-        floatArray[j++] = data[i]     / 255; // R
+        floatArray[j++] = data[i] / 255; // R
         floatArray[j++] = data[i + 1] / 255; // G
         floatArray[j++] = data[i + 2] / 255; // B
     }
