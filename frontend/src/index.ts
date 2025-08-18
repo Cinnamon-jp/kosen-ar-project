@@ -11,15 +11,11 @@ import startCamera from "./functions/startCamera.ts";
 import takePicture from "./functions/takePicture.ts";
 
 const ONNX_MODEL_URL = "http://localhost:3000/models/yolo11n.onnx";
-const TF_MODEL_URL ="http://localhost:3000/models/yolo11n_web_model/model.json";
 
 try {
     startCamera();
 } catch (error) {
-    console.error(
-        "カメラまたはモデルの読み込み中にエラーが発生しました:",
-        error
-    );
+    console.error("カメラまたはモデルの読み込み中にエラーが発生しました:", error);
 }
 
 captureButton.addEventListener("click", takePicture);

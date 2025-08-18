@@ -1,0 +1,27 @@
+import * as ort from "onnxruntime-web";
+
+import { GET_video, GET_canvas } from "../index.ts";
+
+const video = GET_video();
+const canvas = GET_canvas();
+
+export default function createTensor(): ort.Tensor {
+    const context = canvas.getContext("2d");
+    if (!context) {
+        throw new Error("Unable to get 2D context from canvas");
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const { data } = imageData;
+    const numPixels = data.length / 4;
+    const floatArray = new Float32Array(numPixels * 3);
+    let j = 0;
+    for (let i = 0; i < data.length; i += 4) {
+        floatArray[j++] = data[i]     / 255; // R
+        floatArray[j++] = data[i + 1] / 255; // G
+        floatArray[j++] = data[i + 2] / 255; // B
+    }
+    return new ort.Tensor("float32", floatArray, [1, 3, canvas.height, canvas.width]);
+}
