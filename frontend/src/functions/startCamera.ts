@@ -1,8 +1,5 @@
-import { GET_video } from "../index.ts";
 
-export default async function startCamera(): Promise<void> {
-    const video = GET_video();
-
+export default async function startCamera(video: HTMLVideoElement): Promise<void> {
     // 初回ストリームで最大解像度を取得
     const initialStream = await navigator.mediaDevices.getUserMedia({
         video: true

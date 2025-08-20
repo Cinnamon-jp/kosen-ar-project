@@ -1,8 +1,4 @@
-import { GET_video, GET_canvas } from "../index.ts";
-
-export default function takePicture(): void {
-    const video = GET_video();
-    const canvas = GET_canvas();
+export default function takePicture(video: HTMLVideoElement, canvas: HTMLCanvasElement): void {
 
     const context = canvas.getContext("2d");
     if (!context) {

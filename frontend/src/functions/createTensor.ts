@@ -1,11 +1,6 @@
 import * as ort from "onnxruntime-web";
 
-import { GET_video, GET_canvas } from "../index.ts";
-
-const video = GET_video();
-const canvas = GET_canvas();
-
-export default function createTensor(): ort.Tensor {
+export default function createTensor(video: HTMLVideoElement, canvas: HTMLCanvasElement): ort.Tensor {
     const context = canvas.getContext("2d");
     if (!context) {
         throw new Error("Unable to get 2D context from canvas");
