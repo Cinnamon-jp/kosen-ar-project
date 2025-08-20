@@ -10,7 +10,7 @@ export const GET_captureButton = (): HTMLButtonElement => captureButton;
 import startCamera from "./functions/startCamera.ts";
 import takePicture from "./functions/takePicture.ts";
 
-const ONNX_MODEL_URL = "http://localhost:3000/models/yolo11n.onnx";
+// const ONNX_MODEL_URL = "http://localhost:3000/models/yolo11n.onnx";
 
 try {
     startCamera();

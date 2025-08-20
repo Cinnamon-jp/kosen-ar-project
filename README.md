@@ -14,7 +14,7 @@ npm install
 * **vite** を使用してプロジェクトをビルド
 ---
 * 物体検出には、**YOLOv8** (可能であれば **YOLO11** ) をファインチューニングして使用する
-* 物体検出モデルは **TensorFlow.js** または **onnxruntime-web** を使用して動作させる
+* 物体検出モデルは **onnxruntime-web** または **TensorFlow.js** を使用して動作させる
 * 物体検出モデルは **WebGL** (可能であれば **WebGPU** ) を使用して推論を行う
 * 必要に応じて **WebAssembly** ( **AssemblyScript** ) を使用する
 ---
