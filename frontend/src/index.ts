@@ -1,7 +1,6 @@
 const video = document.getElementById("video") as HTMLVideoElement;
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const captureButton = document.getElementById("capture") as HTMLButtonElement;
-const image = document.getElementById("image") as HTMLImageElement; // debug
 
 import startCamera from "./functions/startCamera.ts";
 import inferOnnxModel from "./functions/inferOnnxModel.ts";
@@ -12,18 +11,18 @@ import drawDetections from "./functions/drawDetections.ts";
 
 async function main(): Promise<void> {
 
-    // カメラの起動
-    try {
-        await startCamera(video);
-    } catch (error) {
-        console.error("カメラの読み込み中にエラーが発生しました:", error);
-    }
+    // カメラの起動 // debug
+    // try {
+    //     await startCamera(video);
+    // } catch (error) {
+    //     console.error("カメラの読み込み中にエラーが発生しました:", error);
+    // }
 
     // 写真撮影時
     captureButton.addEventListener("click", async () => {
         // ONNXモデル推論
         try {
-            const results = await inferOnnxModel(image, canvas); // debug: imageを使用
+            const results = await inferOnnxModel(video, canvas); // debug: imageを使用
             console.log("ONNXモデルの推論結果:", results);
 
             // 推論結果の後処理
