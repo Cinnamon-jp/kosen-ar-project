@@ -1,9 +1,9 @@
 const video = document.getElementById("video") as HTMLVideoElement;
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const captureButton = document.getElementById("capture") as HTMLButtonElement;
+const image = document.getElementById("image") as HTMLImageElement; // debug
 
 import startCamera from "./functions/startCamera.ts";
-import takePicture from "./functions/takePicture.ts";
 import inferOnnxModel from "./functions/inferOnnxModel.ts";
 import postprocess from "./functions/postprocess.ts";
 
@@ -22,10 +22,12 @@ async function main(): Promise<void> {
     captureButton.addEventListener("click", async () => {
         // ONNXモデル推論
         try {
-            const results = await inferOnnxModel(video, canvas);
-            const detections = postprocess(results);
+            const results = await inferOnnxModel(image, canvas); // debug: imageを使用
+            console.log("ONNXモデルの推論結果:", results);
 
-            console.log("推論結果:", detections);
+            // 推論結果の後処理
+            const detections = postprocess(results);
+            console.log("後処理後結果:", detections);
         } catch (error) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", error);
         }

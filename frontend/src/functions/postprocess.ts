@@ -31,50 +31,6 @@ const defaultOptions: Required<Pick<PostprocessOptions,
     maxDetections: 100
 };
 
-function sigmoid(x: number): number {
-    return 1 / (1 + Math.exp(-x));
-}
-
-function iou(a: Detection, b: Detection): number {
-    const x1 = Math.max(a.x1, b.x1);
-    const y1 = Math.max(a.y1, b.y1);
-    const x2 = Math.min(a.x2, b.x2);
-    const y2 = Math.min(a.y2, b.y2);
-    const w = Math.max(0, x2 - x1);
-    const h = Math.max(0, y2 - y1);
-    const inter = w * h;
-    const areaA = (a.x2 - a.x1) * (a.y2 - a.y1);
-    const areaB = (b.x2 - b.x1) * (b.y2 - b.y1);
-    const uni = areaA + areaB - inter + 1e-9;
-    return inter / uni;
-}
-
-function nms(dets: Detection[], iouThr: number, maxDet: number): Detection[] {
-    // スコアの降順でソート
-    const order = dets
-        .map((d, i) => ({ i, s: d.score }))
-        .sort((a, b) => b.s - a.s)
-        .map(o => o.i);
-
-    const selected: Detection[] = [];
-    const suppressed = new Array(dets.length).fill(false);
-
-    for (let _k = 0; _k < order.length; _k++) {
-        const i = order[_k];
-        if (suppressed[i]) continue;
-        const di = dets[i];
-        selected.push(di);
-        if (selected.length >= maxDet) break;
-        for (let _l = _k + 1; _l < order.length; _l++) {
-            const j = order[_l];
-            if (suppressed[j]) continue;
-            const dj = dets[j];
-            if (iou(di, dj) > iouThr) suppressed[j] = true;
-        }
-    }
-    return selected;
-}
-
 // YOLO系の出力を検出結果にデコード
 // 対応形状: [1, C, N], [1, N, C], または [N, C]
 export default function postprocess(
@@ -274,4 +230,50 @@ export function drawDetections(
     }
     ctx.restore();
 }
+
+function sigmoid(x: number): number {
+    return 1 / (1 + Math.exp(-x));
+}
+
+function iou(a: Detection, b: Detection): number {
+    const x1 = Math.max(a.x1, b.x1);
+    const y1 = Math.max(a.y1, b.y1);
+    const x2 = Math.min(a.x2, b.x2);
+    const y2 = Math.min(a.y2, b.y2);
+    const w = Math.max(0, x2 - x1);
+    const h = Math.max(0, y2 - y1);
+    const inter = w * h;
+    const areaA = (a.x2 - a.x1) * (a.y2 - a.y1);
+    const areaB = (b.x2 - b.x1) * (b.y2 - b.y1);
+    const uni = areaA + areaB - inter + 1e-9;
+    return inter / uni;
+}
+
+function nms(dets: Detection[], iouThr: number, maxDet: number): Detection[] {
+    // スコアの降順でソート
+    const order = dets
+        .map((d, i) => ({ i, s: d.score }))
+        .sort((a, b) => b.s - a.s)
+        .map(o => o.i);
+
+    const selected: Detection[] = [];
+    const suppressed = new Array(dets.length).fill(false);
+
+    for (let _k = 0; _k < order.length; _k++) {
+        const i = order[_k];
+        if (suppressed[i]) continue;
+        const di = dets[i];
+        selected.push(di);
+        if (selected.length >= maxDet) break;
+        for (let _l = _k + 1; _l < order.length; _l++) {
+            const j = order[_l];
+            if (suppressed[j]) continue;
+            const dj = dets[j];
+            if (iou(di, dj) > iouThr) suppressed[j] = true;
+        }
+    }
+    return selected;
+}
+
+
 
