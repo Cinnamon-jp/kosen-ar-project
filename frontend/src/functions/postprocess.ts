@@ -32,14 +32,14 @@ const defaultOptions: Required<Pick<PostprocessOptions,
 };
 
 // YOLO系の出力を検出結果にデコード
-// 対応形状: [1, C, N], [1, N, C], または [N, C]
+// 対応形状: [1, C, N], [1, N, C], [N, C], [C, N], 1次元([C])
 export default function postprocess(
     results: ort.InferenceSession.OnnxValueMapType,
     options: PostprocessOptions = {}
 ): Detection[] {
     const { scoreThreshold, iouThreshold, maxDetections } = { ...defaultOptions, ...options };
 
-    // 最初のテンソル出力を取得
+    // 最初の出力テンソル取得
     const firstKey = Object.keys(results)[0];
     if (!firstKey) return [];
     const output = results[firstKey];
@@ -47,188 +47,171 @@ export default function postprocess(
 
     const tensor = output as ort.Tensor;
     const data = tensor.data as Float32Array | number[];
-    const dims = tensor.dims;
+    const dims = tensor.dims.slice();
 
-    // 先頭のサイズ1次元を削除（例: [1, 1, N, C] -> [N, C]）
-    const reducedDims = dims.filter((d, idx) => !(d === 1 && idx < dims.length - 2));
+    if (!dims.length) return [];
 
-    // レイアウトを判定
-    let numRows: number; // 予測数
-    let numCols: number; // 1予測あたりの値（4 + クラス数 [+ たぶんobj]）
+    // 先頭の連続する1(Batch)を除去（例: [1,84,8400] -> [84,8400], [1,1,84,8400] -> [84,8400]）
+    while (dims.length > 1 && dims[0] === 1) dims.shift();
+
+    let numRows = 0; // 予測数
+    let numCols = 0; // 各予測の特徴量数
     let accessor: (row: number, col: number) => number;
 
-    if (reducedDims.length === 3) {
-        // Bが1（または削減済み）の [B, C, N] または [B, N, C] を想定
-    const [, b, c] = reducedDims; // a==1 は上で除去済みだが汎用的に扱う
-        // 列（特徴量）は小さい方（通常<=256）と仮定して向きを選択
-        if (b <= c) {
-            // 形状例: [1, C, N]
-            numRows = c; // N
-            numCols = b; // C
-            const stride2 = c; // 最終次元のストライド
-            accessor = (row, col) => (data as any)[col * stride2 + row];
+    if (dims.length === 3) {
+        // 想定: [B(=1除去済), C, N] または [B, N, C] だったがバッチ除去後 [C, N] になるはずなので
+        // ここに来るのは想定外（多次元）。安全策として終了
+        return [];
+    } else if (dims.length === 2) {
+        const [d0, d1] = dims;
+        // 小さい方を特徴量(C)とみなすヒューリスティック（典型: 84 vs 8400）
+        // ただし d0 が十分小さく(>=6 && <=2048) かつ d1 > d0 の場合 d0=cols
+        const d0IsCols = d0 >= 6 && d0 <= 2048 && d1 > d0;
+        const d1IsCols = d1 >= 6 && d1 <= 2048 && d0 > d1;
+        if (d0IsCols || (!d1IsCols && d0 <= d1)) {
+            // 形状 [C, N]
+            numCols = d0;
+            numRows = d1;
+            const stride = d1; // 列優先ではなく行優先の再考: data配列はrow-major想定
+            // 元配列は ONNX (C,N) でもフラットは C*N の行優先(Cが最初次元)
+            accessor = (row, col) => (data as any)[col * numRows + row];
         } else {
-            // 形状例: [1, N, C]
-            numRows = b; // N
-            numCols = c; // C
-            const stride2 = c;
-            accessor = (row, col) => (data as any)[row * stride2 + col];
+            // 形状 [N, C]
+            numRows = d0;
+            numCols = d1;
+            const stride = numCols;
+            accessor = (row, col) => (data as any)[row * stride + col];
         }
-    } else if (reducedDims.length === 2) {
-        // [N, C]
-        const [n, c] = reducedDims;
-        numRows = n;
-        numCols = c;
-        const stride = c;
-        accessor = (row, col) => (data as any)[row * stride + col];
-    } else if (reducedDims.length === 1) {
-        // 特殊ケース: N=1 の [C]
+    } else if (dims.length === 1) {
         numRows = 1;
-        numCols = reducedDims[0];
+        numCols = dims[0];
         accessor = (_row, col) => (data as any)[col];
     } else {
-        // 想定外
+        // 4次元以上は未対応
         return [];
     }
 
-    if (numCols < 6) {
-        // bboxとクラスを構成する列数が不足
-        return [];
-    }
+    if (numCols < 6) return []; // bbox + 最低限クラス列が無い
 
-    // クラスロジットにシグモイドが必要か判定
-    const clsStart = 4; // YOLO: [cx, cy, w, h, (obj?), クラススコア...]
-    // クラススコアを少数サンプルして概観
-    let sampleMax = -Infinity, sampleMin = Infinity, samples = 0;
+    // クラス列開始位置（基本: 4, obj信号があれば 5）
+    const clsStartBase = 4;
+
+    // クラススコア分布サンプリング
     const sampleRows = Math.min(numRows, 20);
-    const clsCols = Math.max(1, numCols - clsStart);
+    let sampleMin = Infinity;
+    let sampleMax = -Infinity;
+
+    // 一旦 obj ありなし不明なので列4も後で調査
     for (let r = 0; r < sampleRows; r++) {
-        for (let c = 0; c < Math.min(clsCols, 6); c++) {
-            const v = accessor(r, clsStart + c);
-            sampleMax = Math.max(sampleMax, v);
-            sampleMin = Math.min(sampleMin, v);
-            samples++;
+        for (let c = clsStartBase; c < Math.min(numCols, clsStartBase + 8); c++) {
+            const v = accessor(r, c);
+            if (v < sampleMin) sampleMin = v;
+            if (v > sampleMax) sampleMax = v;
         }
     }
     const needSigmoid = !(sampleMin >= 0 && sampleMax <= 1);
 
-    // インデックス4に明示的なオブジェクトネス列があるか検出
-    // ヒューリスティック: 列数が6以上でクラス列が多くても確実ではない。
-    // numCols - 5 >= 1 かつ分布が [0..1] を示す場合のみ列4をオブジェクトネスとみなす。
+    // オブジェクトネス列(4)判定
     let hasObj = false;
     if (numCols >= 6) {
-        // 列4の値域を調査
         let oMin = Infinity, oMax = -Infinity;
         for (let r = 0; r < sampleRows; r++) {
             const v = accessor(r, 4);
-            oMin = Math.min(oMin, v);
-            oMax = Math.max(oMax, v);
+            if (v < oMin) oMin = v;
+            if (v > oMax) oMax = v;
         }
-        // 列4が[0,1]に収まり、クラスロジットにシグモイドが必要そうならオブジェクトネスありと仮定
+        // obj列が[0,1] に収まっていて、クラスがシグモイド必要そうなら obj と判断
         hasObj = oMin >= 0 && oMax <= 1 && needSigmoid;
     }
 
+    const clsStart = hasObj ? 5 : 4;
     const imgW = options.imgWidth ?? 0;
     const imgH = options.imgHeight ?? 0;
 
-    // ボックスが正規化（[0..1]）されているか確認
+    // ボックス正規化判定
     let normBoxes = false;
-    {
+    if (imgW > 0 && imgH > 0) {
         let maxW = -Infinity, maxH = -Infinity;
         for (let r = 0; r < sampleRows; r++) {
-            maxW = Math.max(maxW, accessor(r, 2));
-            maxH = Math.max(maxH, accessor(r, 3));
+            const w = accessor(r, 2);
+            const h = accessor(r, 3);
+            if (w > maxW) maxW = w;
+            if (h > maxH) maxH = h;
         }
-        if (imgW > 0 && imgH > 0) {
-            normBoxes = maxW <= 1.5 && maxH <= 1.5; // 正規化されている可能性が高い
-        }
+        normBoxes = maxW <= 1.5 && maxH <= 1.5;
     }
 
     const dets: Detection[] = [];
+    const minScore = scoreThreshold;
+
     for (let r = 0; r < numRows; r++) {
         const cxRaw = accessor(r, 0);
         const cyRaw = accessor(r, 1);
         const wRaw = accessor(r, 2);
         const hRaw = accessor(r, 3);
 
-        // クラススコア
-        const start = hasObj ? 5 : 4;
-        const classesCount = Math.max(1, numCols - start);
+        // クラス探索
+        const classesCount = Math.max(1, numCols - clsStart);
         let bestId = -1;
         let bestScore = -Infinity;
         for (let c = 0; c < classesCount; c++) {
-            let v = accessor(r, start + c);
+            let v = accessor(r, clsStart + c);
             if (needSigmoid) v = sigmoid(v);
             if (v > bestScore) {
                 bestScore = v;
                 bestId = c;
             }
         }
+        if (bestId < 0) continue;
 
-        let score = bestScore;
+        let finalScore = bestScore;
         if (hasObj) {
             let obj = accessor(r, 4);
             if (needSigmoid) obj = sigmoid(obj);
-            score = obj * bestScore;
+            finalScore *= obj;
         }
+        if (finalScore < minScore) continue;
 
-        if (score < (scoreThreshold ?? 0)) continue;
-
-        // 必要に応じてボックスをスケーリング
+        // 座標スケーリング
         let cx = cxRaw, cy = cyRaw, w = wRaw, h = hRaw;
         if (normBoxes && imgW > 0 && imgH > 0) {
             cx *= imgW; cy *= imgH; w *= imgW; h *= imgH;
         }
 
-        const x1 = cx - w / 2;
-        const y1 = cy - h / 2;
-        const x2 = cx + w / 2;
-        const y2 = cy + h / 2;
+        let x1 = cx - w / 2;
+        let y1 = cy - h / 2;
+        let x2 = cx + w / 2;
+        let y2 = cy + h / 2;
 
-        const det: Detection = {
-            x: cx, y: cy, width: w, height: h,
-            x1, y1, x2, y2,
-            score,
+        if (imgW > 0 && imgH > 0) {
+            // 画像境界にクリップ
+            x1 = Math.max(0, Math.min(imgW, x1));
+            y1 = Math.max(0, Math.min(imgH, y1));
+            x2 = Math.max(0, Math.min(imgW, x2));
+            y2 = Math.max(0, Math.min(imgH, y2));
+            w = Math.max(0, x2 - x1);
+            h = Math.max(0, y2 - y1);
+            cx = x1 + w / 2;
+            cy = y1 + h / 2;
+        }
+
+        dets.push({
+            x: cx,
+            y: cy,
+            width: w,
+            height: h,
+            x1,
+            y1,
+            x2,
+            y2,
+            score: finalScore,
             classId: bestId,
             className: options.classNames?.[bestId]
-        };
-        dets.push(det);
+        });
     }
 
-    if (dets.length === 0) return dets;
-
-    const finalDets = nms(dets, iouThreshold ?? 0.45, maxDetections ?? 100);
-    return finalDets;
-}
-
-// 任意: 検出結果をキャンバスに描画
-export function drawDetections(
-    ctx: CanvasRenderingContext2D,
-    detections: Detection[],
-    color = "#00FF7F"
-): void {
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineWidth = 2;
-    ctx.font = "14px sans-serif";
-    for (const d of detections) {
-        const w = Math.max(0, d.x2 - d.x1);
-        const h = Math.max(0, d.y2 - d.y1);
-        ctx.beginPath();
-        ctx.rect(d.x1, d.y1, w, h);
-        ctx.stroke();
-        const label = `${d.className ?? `cls ${d.classId}`} ${(d.score * 100).toFixed(1)}%`;
-        const pad = 3;
-        const metrics = ctx.measureText(label);
-        const tw = metrics.width + pad * 2;
-        const th = 16 + pad * 2;
-        ctx.fillRect(d.x1, Math.max(0, d.y1 - th), tw, th);
-        ctx.fillStyle = "#000";
-        ctx.fillText(label, d.x1 + pad, Math.max(12, d.y1 - th + 12));
-        ctx.fillStyle = color;
-    }
-    ctx.restore();
+    if (!dets.length) return dets;
+    return nms(dets, iouThreshold, maxDetections);
 }
 
 function sigmoid(x: number): number {

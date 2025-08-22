@@ -6,6 +6,7 @@ const image = document.getElementById("image") as HTMLImageElement; // debug
 import startCamera from "./functions/startCamera.ts";
 import inferOnnxModel from "./functions/inferOnnxModel.ts";
 import postprocess from "./functions/postprocess.ts";
+import drawDetections from "./functions/drawDetections.ts";
 
 // const ONNX_MODEL_URL = "http://localhost:3000/models/yolo11n.onnx";
 
@@ -28,6 +29,15 @@ async function main(): Promise<void> {
             // 推論結果の後処理
             const detections = postprocess(results);
             console.log("後処理後結果:", detections);
+
+            // 検出結果をキャンバスに描画
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // キャンバスをクリア
+                drawDetections(ctx, detections);
+                canvas.style.zIndex = "2"; // キャンバスを最前面に
+                console.log("検出結果をキャンバスに描画しました");
+            }
         } catch (error) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", error);
         }

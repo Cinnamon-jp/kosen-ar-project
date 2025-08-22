@@ -27,7 +27,11 @@ function createTensor(
     canvas: HTMLCanvasElement
 ): ort.Tensor {
     const context = canvas.getContext("2d");
-    if (!context) throw new Error("Unable to get 2D context from canvas");
+
+    // 例外処理
+    if (!context) {
+        throw new Error("Unable to get 2D context from canvas");
+    }
 
     // 元サイズ（キャンバス未設定ならソース）
     let baseWidth: number;
@@ -46,7 +50,10 @@ function createTensor(
     }
 
     // 最も近い 32 の倍数（YOLO 系で要求されることが多い）
-    const roundTo32 = (v: number) => Math.max(32, Math.round(v / 32) * 32);
+    function roundTo32(v: number): number {
+        return Math.max(32, Math.round(v / 32) * 32);
+    }
+    
     const targetWidth = roundTo32(baseWidth);
     const targetHeight = roundTo32(baseHeight);
 
