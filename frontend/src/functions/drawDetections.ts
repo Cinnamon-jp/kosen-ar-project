@@ -1,11 +1,7 @@
 import type { Detection } from "./postprocess.ts";
 
 // 任意: 検出結果をキャンバスに描画
-export default function drawDetections(
-    ctx: CanvasRenderingContext2D,
-    detections: Detection[],
-    color = "#00FF7F"
-): void {
+export default function drawDetections(ctx: CanvasRenderingContext2D, detections: Detection[], color = "#00FF7F"): void {
     if (!ctx || !detections || detections.length === 0) return;
 
     ctx.save();

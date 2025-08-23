@@ -23,9 +23,7 @@ export type PostprocessOptions = {
     classNames?: string[]; // 任意のクラス名
 };
 
-const defaultOptions: Required<Pick<PostprocessOptions,
-    "scoreThreshold" | "iouThreshold" | "maxDetections"
->> = {
+const defaultOptions: Required<Pick<PostprocessOptions, "scoreThreshold" | "iouThreshold" | "maxDetections">> = {
     scoreThreshold: 0.25,
     iouThreshold: 0.45,
     maxDetections: 100
@@ -114,7 +112,8 @@ export default function postprocess(
     // オブジェクトネス列(4)判定
     let hasObj = false;
     if (numCols >= 6) {
-        let oMin = Infinity, oMax = -Infinity;
+        let oMin = Infinity,
+            oMax = -Infinity;
         for (let r = 0; r < sampleRows; r++) {
             const v = accessor(r, 4);
             if (v < oMin) oMin = v;
@@ -131,7 +130,8 @@ export default function postprocess(
     // ボックス正規化判定
     let normBoxes = false;
     if (imgW > 0 && imgH > 0) {
-        let maxW = -Infinity, maxH = -Infinity;
+        let maxW = -Infinity,
+            maxH = -Infinity;
         for (let r = 0; r < sampleRows; r++) {
             const w = accessor(r, 2);
             const h = accessor(r, 3);
@@ -173,9 +173,15 @@ export default function postprocess(
         if (finalScore < minScore) continue;
 
         // 座標スケーリング
-        let cx = cxRaw, cy = cyRaw, w = wRaw, h = hRaw;
+        let cx = cxRaw,
+            cy = cyRaw,
+            w = wRaw,
+            h = hRaw;
         if (normBoxes && imgW > 0 && imgH > 0) {
-            cx *= imgW; cy *= imgH; w *= imgW; h *= imgH;
+            cx *= imgW;
+            cy *= imgH;
+            w *= imgW;
+            h *= imgH;
         }
 
         let x1 = cx - w / 2;
@@ -237,7 +243,7 @@ function nms(dets: Detection[], iouThr: number, maxDet: number): Detection[] {
     const order = dets
         .map((d, i) => ({ i, s: d.score }))
         .sort((a, b) => b.s - a.s)
-        .map(o => o.i);
+        .map((o) => o.i);
 
     const selected: Detection[] = [];
     const suppressed = new Array(dets.length).fill(false);
@@ -257,6 +263,3 @@ function nms(dets: Detection[], iouThr: number, maxDet: number): Detection[] {
     }
     return selected;
 }
-
-
-

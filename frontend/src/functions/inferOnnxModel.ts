@@ -1,6 +1,23 @@
 import * as ort from "onnxruntime-web";
 
-ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/";
+const COCO_CLASSES = [
+    "person","bicycle","car","motorcycle","airplane","bus","train","truck","boat","traffic light",
+    "fire hydrant","stop sign","parking meter","bench","bird","cat","dog","horse","sheep","cow",
+    "elephant","bear","zebra","giraffe","backpack","umbrella","handbag","tie","suitcase","frisbee",
+    "skis","snowboard","sports ball","kite","baseball bat","baseball glove","skateboard","surfboard","tennis racket","bottle",
+    "wine glass","cup","fork","knife","spoon","bowl","banana","apple","sandwich","orange",
+    "broccoli","carrot","hot dog","pizza","donut","cake","chair","couch","potted plant","bed",
+    "dining table","toilet","tv","laptop","mouse","remote","keyboard","cell phone","microwave","oven",
+    "toaster","sink","refrigerator","book","clock","vase","scissors","teddy bear","hair drier","toothbrush"
+];
+
+interface Detection {
+    classId: number;
+    className: string;
+    score: number;
+    x1: number; y1: number;
+    x2: number; y2: number;
+}
 
 export default async function inferOnnxModel(
     video: HTMLVideoElement,
@@ -12,7 +29,7 @@ export default async function inferOnnxModel(
     const session = await ort.InferenceSession.create("/yolo11n.onnx");
 
     // テンソルの作成（<video> / <img> 両対応）
-    const inputTensor = createTensor(video, canvas);
+    const inputTensor = preprocess(video, canvas);
 
     // 入力テンソルのフィード
     const feeds = { [session.inputNames[0]]: inputTensor };
@@ -23,38 +40,10 @@ export default async function inferOnnxModel(
     return results;
 }
 
-function createTensor(
+function preprocess(
     video: HTMLVideoElement,
     canvas: HTMLCanvasElement
 ): ort.Tensor {
-    // 出力のタプルを取得
-    const data = resizeVideoToMultipleOf32(video, canvas);
-
-    const dataArray: ImageDataArray = data[0];
-    const targetWidth: number = dataArray[1];
-    const targetHeight: number = dataArray[2];
-
-    const size = targetWidth * targetHeight;
-
-    const floatArray = new Float32Array(3 * size);
-    // NCHW (channel-first) で格納: [R(全部), G(全部), B(全部)]
-    for (let y = 0; y < targetHeight; y++) {
-        for (let x = 0; x < targetWidth; x++) {
-            const pixelIndex = y * targetWidth + x;
-            const dataIndex = pixelIndex * 4;
-            floatArray[pixelIndex] = dataArray[dataIndex] / 255;                // R
-            floatArray[size + pixelIndex] = dataArray[dataIndex + 1] / 255;     // G
-            floatArray[2 * size + pixelIndex] = dataArray[dataIndex + 2] / 255; // B
-        }
-    }
-
-    return new ort.Tensor("float32", floatArray, [1, 3, targetHeight, targetWidth]);
-}
-
-function resizeVideoToMultipleOf32(
-    video: HTMLVideoElement,
-    canvas: HTMLCanvasElement
-): [ImageDataArray, number, number] {
     const ctx = canvas.getContext("2d");
     // 例外処理
     if (!ctx) {
@@ -63,6 +52,10 @@ function resizeVideoToMultipleOf32(
 
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
+    // 例外処理
+    if (videoWidth === 0 || videoHeight === 0) {
+        throw new Error("Video width or height is zero");
+    }
 
     // 32の倍数に切り下げ
     const targetWidth = Math.floor(videoWidth / 32) * 32;
@@ -80,13 +73,28 @@ function resizeVideoToMultipleOf32(
         video,
         sx, sy,                    // 左上座標
         targetWidth, targetHeight, // 右下座標
-        0, 0,                      // 描画先の左上
-        targetWidth,               // 描画先の幅
-        targetHeight               // 描画先の高さ
+        0, 0,                      // 描画先の左上座標
+        targetWidth, targetHeight  // 描画先の右下座標
     );
 
-    // ImageData を取得して返す
-    return [ctx.getImageData(0, 0, targetWidth, targetHeight).data,
-        targetWidth, targetHeight
-    ];
+    const { data } = ctx.getImageData(0, 0, targetWidth, targetHeight);
+    const size = targetWidth * targetHeight;
+
+    const floatArray = new Float32Array(3 * size);
+    // NCHW (channel-first) で格納: [R(全部), G(全部), B(全部)]
+    for (let y = 0; y < targetHeight; y++) {
+        for (let x = 0; x < targetWidth; x++) {
+            const pixelIndex = y * targetWidth + x;
+            const dataIndex = pixelIndex * 4;
+            floatArray[pixelIndex] = data[dataIndex] / 255;                // R
+            floatArray[size + pixelIndex] = data[dataIndex + 1] / 255;     // G
+            floatArray[2 * size + pixelIndex] = data[dataIndex + 2] / 255; // B
+        }
+    }
+
+    return new ort.Tensor("float32", floatArray, [1, 3, targetHeight, targetWidth]);
+}
+
+function postprocess(results: ort.InferenceSession.OnnxValueMapType): Detection[] {
+    const data = (results["output0"] as ort.Tensor).data as Float32Array;
 }
