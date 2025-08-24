@@ -21,22 +21,40 @@ async function main(): Promise<void> {
     // onnxruntime-web が探しに行く .wasm のベースパスを指定
     ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/";
 
-    // 写真撮影時
-    captureButton.addEventListener("click", async () => {
-        // ONNXモデル推論
-        let results: Detection[] = [];
+    // ONNX モデルの読み込み
+    const session = await ort.InferenceSession.create("/yolo11n.onnx");
 
+    // 描画コンテキストの取得
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+        throw new Error("Unable to get 2D context from canvas");
+    }
+
+    async function handleCapture(): Promise<void> {
+        let results: Detection[] = [];
         try {
-            results = await inferOnnxModel(video, canvas);
+
+            results = await inferOnnxModel(session, video, canvas);
             console.log(results);
         } catch (error) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", error);
         }
 
-        canvas.style.zIndex = "2"; // debug
-
         // バウンディングボックスの描画
         drawDetections(results, canvas);
+        console.log("描画完了");
+    }
+
+    // 写真撮影時
+    captureButton.addEventListener("click", handleCapture);
+    document.addEventListener("keydown", async (event) => {
+        if (event.key === " ") {
+            event.preventDefault(); // スクロール防止
+            await handleCapture();
+        }
     });
 }
-main();
+main().catch(err => {
+    console.error(err)
+    alert("エラーが発生しました。")
+    });

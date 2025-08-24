@@ -21,6 +21,15 @@ export default function drawDetections(detections: Detection[], canvas: HTMLCanv
         ctx.lineWidth = 2;
         ctx.strokeRect(x1, y1, width, height);
 
+        // 点を中心に描画
+        const centerX = x1 + width / 2;
+        const centerY = y1 + height / 2;
+        const pointRadius = 3;
+        ctx.fillStyle = "red";
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, pointRadius, 0, Math.PI * 2);
+        ctx.fill();
+
         // ラベル用の背景を描画
         const textWidth = ctx.measureText(label).width;
         const textHeight = 16; // フォントサイズに合わせる
