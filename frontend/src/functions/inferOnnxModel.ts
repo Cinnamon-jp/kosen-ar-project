@@ -11,7 +11,7 @@ const COCO_CLASSES = [
     "toaster","sink","refrigerator","book","clock","vase","scissors","teddy bear","hair drier","toothbrush"
 ];
 
-interface Detection {
+export interface Detection {
     classId: number;
     className: string;
     score: number;
@@ -22,7 +22,7 @@ interface Detection {
 export default async function inferOnnxModel(
     video: HTMLVideoElement,
     canvas: HTMLCanvasElement
-): Promise<ort.InferenceSession.OnnxValueMapType> {
+): Promise<Detection[]> {
     // onnxruntime-web が探しに行く .wasm のベースパスを指定
 
     // ONNX モデルの読み込み
@@ -37,7 +37,10 @@ export default async function inferOnnxModel(
     // モデル推論実行
     const results = await session.run(feeds);
 
-    return results;
+    // 検出結果の後処理
+    const detections = postprocess(results);
+
+    return detections;
 }
 
 function preprocess(
@@ -96,5 +99,38 @@ function preprocess(
 }
 
 function postprocess(results: ort.InferenceSession.OnnxValueMapType): Detection[] {
-    const data = (results["output0"] as ort.Tensor).data as Float32Array;
+    const tensor = results["output0"] as ort.Tensor;
+    const attrs = tensor.dims[2]; // [1, 8400, 84]
+    const data = tensor.data as Float32Array; // 実際のデータが格納された1次元配列
+
+    // i 番目のボックスを取得 (0スタート)
+    function getBox(i: number): Detection {
+        const base = attrs * i;
+
+        const centerX = data[base + 0];
+        const centerY = data[base + 1];
+        const width  = data[base + 2];
+        const height  = data[base + 3];
+        const score = data[base + 4];
+        const classId = data[base + 5];
+
+        // バウンディングボックスの左上・右下座標に変換
+        const x1 = centerX - width / 2;
+        const y1 = centerY - height / 2;
+        const x2 = centerX + width / 2;
+        const y2 = centerY + height / 2;
+
+        const className = COCO_CLASSES[classId] ?? "unknown";
+
+        return { classId, className, score, x1, y1, x2, y2 };
+    }
+
+    // スコアが0でなくなるまで (＝有効なボックスがなくなるまで) ループ
+    let detections: Detection[] = [];
+    for (let i = 0; data[attrs * i + 4] !== 0; i++) {
+        detections.push(getBox(i));
+        console.log(i);
+    }
+
+    return detections;
 }
