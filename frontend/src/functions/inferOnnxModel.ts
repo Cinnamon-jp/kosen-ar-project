@@ -23,8 +23,6 @@ export default async function inferOnnxModel(
     video: HTMLVideoElement,
     canvas: HTMLCanvasElement
 ): Promise<Detection[]> {
-    // onnxruntime-web が探しに行く .wasm のベースパスを指定
-
     // ONNX モデルの読み込み
     const session = await ort.InferenceSession.create("/yolo11n.onnx");
 
@@ -103,7 +101,7 @@ function postprocess(results: ort.InferenceSession.OnnxValueMapType): Detection[
     const attrs = tensor.dims[2]; // [1, 8400, 84]
     const data = tensor.data as Float32Array; // 実際のデータが格納された1次元配列
 
-    // i 番目のボックスを取得 (0スタート)
+    // i 番目のボックスを取得する関数 (0スタート)
     function getBox(i: number): Detection {
         const base = attrs * i;
 
