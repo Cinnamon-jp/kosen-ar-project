@@ -12,11 +12,10 @@ const COCO_CLASSES = [
 ];
 
 export interface Detection {
-    classId: number;
     className: string;
     score: number;
     x1: number; y1: number;
-    x2: number; y2: number;
+    width: number; height: number;
 }
 
 export default async function inferOnnxModel(
@@ -98,7 +97,8 @@ function preprocess(
 
 function postprocess(results: ort.InferenceSession.OnnxValueMapType): Detection[] {
     const tensor = results["output0"] as ort.Tensor;
-    const attrs = tensor.dims[2]; // [1, 8400, 84]
+    const attrs = tensor.dims[2]; // 例: [1, 8400, 84], [1, 300, 6]
+    console.log(tensor.dims);
     const data = tensor.data as Float32Array; // 実際のデータが格納された1次元配列
 
     // i 番目のボックスを取得する関数 (0スタート)
@@ -112,22 +112,21 @@ function postprocess(results: ort.InferenceSession.OnnxValueMapType): Detection[
         const score = data[base + 4];
         const classId = data[base + 5];
 
-        // バウンディングボックスの左上・右下座標に変換
+        // バウンディングボックスの左上座標に変換
         const x1 = centerX - width / 2;
         const y1 = centerY - height / 2;
-        const x2 = centerX + width / 2;
-        const y2 = centerY + height / 2;
 
         const className = COCO_CLASSES[classId] ?? "unknown";
 
-        return { classId, className, score, x1, y1, x2, y2 };
+        // console.log({ className, score, x1, y1, width, height });
+
+        return { className, score, x1, y1, width, height};
     }
 
     // スコアが0でなくなるまで (＝有効なボックスがなくなるまで) ループ
     let detections: Detection[] = [];
     for (let i = 0; data[attrs * i + 4] !== 0; i++) {
         detections.push(getBox(i));
-        console.log(i);
     }
 
     return detections;

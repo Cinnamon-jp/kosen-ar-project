@@ -8,6 +8,8 @@ import startCamera from "./functions/startCamera.ts";
 import inferOnnxModel from "./functions/inferOnnxModel.ts";
 import drawDetections from "./functions/drawDetections.ts";
 
+import type { Detection } from "./functions/inferOnnxModel.ts";
+
 async function main(): Promise<void> {
     // カメラの起動
     try {
@@ -22,12 +24,19 @@ async function main(): Promise<void> {
     // 写真撮影時
     captureButton.addEventListener("click", async () => {
         // ONNXモデル推論
+        let results: Detection[] = [];
+
         try {
-            const results = await inferOnnxModel(video, canvas);
+            results = await inferOnnxModel(video, canvas);
             console.log(results);
         } catch (error) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", error);
         }
+
+        canvas.style.zIndex = "2"; // debug
+
+        // バウンディングボックスの描画
+        drawDetections(results, canvas);
     });
 }
 main();
