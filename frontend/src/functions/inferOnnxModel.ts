@@ -110,12 +110,11 @@ function preprocess(video: HTMLVideoElement, canvas: HTMLCanvasElement): [ort.Te
         targetHeight // 描画先のサイズ
     );
 
-    // canvasに写真を描画
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // // canvasに写真を描画
+    // ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // debug
-    console.log("写真撮影完了");
-    canvas.style.zIndex = "2";
+    // // debug
+    // console.log("写真撮影完了");
 
     // ピクセルデータを取得
     const { data } = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
