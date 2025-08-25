@@ -10,6 +10,18 @@ import drawDetections from "./functions/drawDetections.ts";
 
 import type { Detection } from "./functions/inferOnnxModel.ts";
 
+// onnxruntime-web が探しに行く .wasm のベースパスを指定
+ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/";
+
+// ONNX モデルの読み込み
+const session = await ort.InferenceSession.create("/yolo11n_640_static.onnx");
+
+// 描画コンテキストの取得
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+    throw new Error("Unable to get 2D context from canvas");
+}
+
 async function main(): Promise<void> {
     // カメラの起動
     try {
@@ -18,22 +30,9 @@ async function main(): Promise<void> {
         console.error("カメラの読み込み中にエラーが発生しました:", error);
     }
 
-    // onnxruntime-web が探しに行く .wasm のベースパスを指定
-    ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/";
-
-    // ONNX モデルの読み込み
-    const session = await ort.InferenceSession.create("/yolo11n.onnx");
-
-    // 描画コンテキストの取得
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-        throw new Error("Unable to get 2D context from canvas");
-    }
-
     async function handleCapture(): Promise<void> {
         let results: Detection[] = [];
         try {
-
             results = await inferOnnxModel(session, video, canvas);
             console.log(results);
         } catch (error) {
@@ -49,12 +48,11 @@ async function main(): Promise<void> {
     captureButton.addEventListener("click", handleCapture);
     document.addEventListener("keydown", async (event) => {
         if (event.key === " ") {
-            event.preventDefault(); // スクロール防止
             await handleCapture();
         }
     });
 }
-main().catch(err => {
-    console.error(err)
-    alert("エラーが発生しました。")
-    });
+main().catch((err) => {
+    console.error(err);
+    alert("エラーが発生しました。");
+});
