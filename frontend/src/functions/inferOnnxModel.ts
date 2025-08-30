@@ -1,5 +1,7 @@
 import * as ort from "onnxruntime-web";
 
+import { convertNchw } from "./wasm/build/release.js";
+
 const COCO_CLASSES = [
     "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
     "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
@@ -31,10 +33,17 @@ interface Conversion {
 export default async function inferOnnxModel(
     session: ort.InferenceSession,
     video: HTMLVideoElement,
-    canvas: HTMLCanvasElement
+    canvas: HTMLCanvasElement,
+    ctx: CanvasRenderingContext2D | null,
+    tempCanvas: HTMLCanvasElement,
+    tempCtx: CanvasRenderingContext2D | null
 ): Promise<Detection[]> {
+    // 例外処理
+    if (!ctx || !tempCtx) {
+        throw new Error("Unable to get 2D context from canvas");
+    }
     // テンソルの作成、倍率の取得
-    const [inputTensor, conversion] = preprocess(video, canvas);
+    const [inputTensor, conversion] = preprocess(video, canvas, ctx, tempCanvas, tempCtx);
 
     // 入力テンソルのフィード
     const feeds = { [session.inputNames[0]]: inputTensor };
@@ -49,23 +58,16 @@ export default async function inferOnnxModel(
 }
 
 // 画像前処理: <video> 要素を受け取り、640x640にリサイズしてTensorと倍率を返す
-function preprocess(video: HTMLVideoElement, canvas: HTMLCanvasElement): [ort.Tensor, Conversion] {
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-        throw new Error("Unable to get 2D context from canvas");
-    }
+function preprocess(
+    video: HTMLVideoElement,
+    canvas: HTMLCanvasElement,
+    ctx: CanvasRenderingContext2D,
+    tempCanvas: HTMLCanvasElement,
+    tempCtx: CanvasRenderingContext2D
+): [ort.Tensor, Conversion] {
     // canvas を video のネイティブ解像度に合わせる
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-
-    // 一時的なcanvasを作成
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.style.display = "none"; // 非表示
-    const tempCtx = tempCanvas.getContext("2d");
-    // 例外処理
-    if (!tempCtx) {
-        throw new Error("Unable to get 2D context from canvas");
-    }
 
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
@@ -74,11 +76,9 @@ function preprocess(video: HTMLVideoElement, canvas: HTMLCanvasElement): [ort.Te
         throw new Error("Video width or height is zero");
     }
 
-    // 一時canvasを640x640に設定
-    const tempCanvasWidth = 640;
-    const tempCanvasHeight = 640;
-    tempCanvas.width = tempCanvasWidth;
-    tempCanvas.height = tempCanvasHeight;
+    // 一時canvasのサイズを取得
+    const tempCanvasWidth = tempCanvas.width;
+    const tempCanvasHeight = tempCanvas.height;
 
     // アスペクト比の計算
     const aspect = videoWidth / videoHeight;
@@ -113,12 +113,9 @@ function preprocess(video: HTMLVideoElement, canvas: HTMLCanvasElement): [ort.Te
     // // canvasに写真を描画
     // ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // // debug
-    // console.log("写真撮影完了");
-
     // ピクセルデータを取得
     const { data } = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-    const size = tempCanvas.width * tempCanvas.height;
+    const size = tempCanvasWidth * tempCanvasHeight;
 
     const floatArray = new Float32Array(3 * size);
     // NCHW (channel-first) で格納: [R(全部), G(全部), B(全部)]

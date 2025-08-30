@@ -16,17 +16,26 @@ import type { Detection } from "./functions/inferOnnxModel.ts";
 ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/";
 
 // ONNX モデルの読み込み
-const modelUrl = "/yolo11n_640_static.onnx";
+const modelUrl = "/yolo11n_half.onnx";
 const session = await createOnnxSession(modelUrl);
-
-// 描画コンテキストの取得
-const ctx = canvas.getContext("2d");
-if (!ctx) {
-    throw new Error("Unable to get 2D context from canvas");
-}
 
 // canvas を前面表示
 canvas.style.zIndex = "2";
+
+// 描画コンテキストの取得
+const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+// モデル推論用に一時的なcanvasを作成
+const tempCanvas = document.createElement("canvas");
+tempCanvas.style.display = "none"; // 非表示
+// 一時canvasを640x640に設定
+const tempCanvasWidth = 640;
+const tempCanvasHeight = 640;
+tempCanvas.width = tempCanvasWidth;
+tempCanvas.height = tempCanvasHeight;
+
+// 一時キャンバスの描画コンテキストを取得
+const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
 
 async function main(): Promise<void> {
     // カメラの起動
@@ -40,7 +49,7 @@ async function main(): Promise<void> {
         let results: Detection[] = [];
         try {
             // ONNXモデルの推論実行
-            results = await inferOnnxModel(session, video, canvas);
+            results = await inferOnnxModel(session, video, canvas, ctx, tempCanvas, tempCtx);
         } catch (error) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", error);
         }
@@ -65,4 +74,5 @@ async function main(): Promise<void> {
 main().catch((err) => {
     console.error(err);
     alert("エラーが発生しました。");
+    window.location.reload();
 });
