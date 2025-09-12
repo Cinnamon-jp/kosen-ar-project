@@ -1,13 +1,13 @@
 import * as ort from "onnxruntime-web";
 import "onnxruntime-web/webgpu"; // WebGPU EP を登録 (side-effect import)
 
-export default async function createOnnxSession(modelUrl: string): Promise<ort.InferenceSession> {
+export default async function createOnnxSession(modelName: string): Promise<ort.InferenceSession> {
     // 最適化やメモリ設定
     // 推論セッションの共通オプション
     const commonOptions: ort.InferenceSession.SessionOptions = {
-        graphOptimizationLevel: "all",    // 最適化
-        enableCpuMemArena: true,          // CPUメモリアリーナ
-        enableMemPattern: true,           // メモリパターン
+        graphOptimizationLevel: "all", // 最適化
+        enableCpuMemArena: true, // CPUメモリアリーナ
+        enableMemPattern: true // メモリパターン
     };
 
     // 簡易版
@@ -18,9 +18,9 @@ export default async function createOnnxSession(modelUrl: string): Promise<ort.I
 
     if (canUseWebGPU) {
         try {
-            const session = await ort.InferenceSession.create(modelUrl, {
+            const session = await ort.InferenceSession.create(modelName, {
                 ...commonOptions,
-                executionProviders: ["webgpu", "wasm"], // 先頭: 第一候補
+                executionProviders: ["webgpu", "wasm"] // 先頭: 第一候補
             });
             console.log("ONNX Runtime: WebGPU EP 使用中");
             return session;
@@ -32,8 +32,8 @@ export default async function createOnnxSession(modelUrl: string): Promise<ort.I
     }
 
     // フォールバック (WASM)
-    return ort.InferenceSession.create(modelUrl, {
+    return ort.InferenceSession.create(modelName, {
         ...commonOptions,
-        executionProviders: ["wasm"],
+        executionProviders: ["wasm"]
     });
 }

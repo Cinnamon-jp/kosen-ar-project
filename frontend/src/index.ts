@@ -16,9 +16,13 @@ import type { Detection } from "./functions/inferOnnxModel.ts";
 ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/";
 
 // ONNX モデルの読み込み
-const modelUrl = "/yolo11n_half.onnx";
-const session = await createOnnxSession(modelUrl);
+const modelName = "/models/yolo11n.onnx";
+const session = await createOnnxSession(modelName);
 
+
+// canvas を video のネイティブ解像度に合わせる
+canvas.width = video.videoWidth;
+canvas.height = video.videoHeight;
 // canvas を前面表示
 canvas.style.zIndex = "2";
 

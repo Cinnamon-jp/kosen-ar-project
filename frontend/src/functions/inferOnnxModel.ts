@@ -1,7 +1,6 @@
 import * as ort from "onnxruntime-web";
 
-import { convertNchw } from "./wasm/build/release.js";
-
+// prettier-ignore
 const COCO_CLASSES = [
     "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
     "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
@@ -11,7 +10,7 @@ const COCO_CLASSES = [
     "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed",
     "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven",
     "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
-];
+] as const;
 
 export interface Detection {
     className: string;
@@ -43,7 +42,7 @@ export default async function inferOnnxModel(
         throw new Error("Unable to get 2D context from canvas");
     }
     // テンソルの作成、倍率の取得
-    const [inputTensor, conversion] = preprocess(video, canvas, ctx, tempCanvas, tempCtx);
+    const [inputTensor, conversion] = preprocess(video, canvas, tempCanvas, tempCtx);
 
     // 入力テンソルのフィード
     const feeds = { [session.inputNames[0]]: inputTensor };
@@ -61,7 +60,6 @@ export default async function inferOnnxModel(
 function preprocess(
     video: HTMLVideoElement,
     canvas: HTMLCanvasElement,
-    ctx: CanvasRenderingContext2D,
     tempCanvas: HTMLCanvasElement,
     tempCtx: CanvasRenderingContext2D
 ): [ort.Tensor, Conversion] {
@@ -98,20 +96,14 @@ function preprocess(
     const targetY = (tempCanvasHeight - targetHeight) / 2;
 
     // videoをcanvasの中央に縮小描画
+    // pretty-ignore
     tempCtx.drawImage(
         video,
-        0,
-        0, // 切り出し開始位置
-        videoWidth,
-        videoHeight, // 切り出しサイズ
-        targetX,
-        targetY, // 描画先の座標 (中央寄せ)
-        targetWidth,
-        targetHeight // 描画先のサイズ
+        0, 0, // 切り出し開始位置
+        videoWidth, videoHeight, // 切り出しサイズ
+        targetX, targetY, // 描画先の座標 (中央寄せ)
+        targetWidth, targetHeight // 描画先のサイズ
     );
-
-    // // canvasに写真を描画
-    // ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     // ピクセルデータを取得
     const { data } = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
@@ -138,8 +130,8 @@ function preprocess(
         targetHeight: targetHeight
     };
 
-    // 一時的なcanvasを削除
-    tempCanvas.remove();
+    // 一時canvasをクリア
+    tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
 
     return [new ort.Tensor("float32", floatArray, [1, 3, tempCanvasHeight, tempCanvasWidth]), conversion];
 }
@@ -184,7 +176,7 @@ function postprocess(results: ort.InferenceSession.OnnxValueMapType, conversion:
         );
 
         // 幅・高さを元画像サイズに変換 -> 整数に丸める
-        const width = Math.round(detection.width * (conversion.originalWidth  / conversion.targetWidth));
+        const width = Math.round(detection.width * (conversion.originalWidth / conversion.targetWidth));
         const height = Math.round(detection.height * (conversion.originalHeight / conversion.targetHeight));
 
         return {
