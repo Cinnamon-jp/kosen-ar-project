@@ -20,11 +20,6 @@ const modelName = "/models/yolo11n.onnx";
 const session = await createOnnxSession(modelName);
 
 
-// canvas を video のネイティブ解像度に合わせる
-canvas.width = video.videoWidth;
-canvas.height = video.videoHeight;
-// canvas を前面表示
-canvas.style.zIndex = "2";
 
 // 描画コンテキストの取得
 const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -49,11 +44,17 @@ async function main(): Promise<void> {
         console.error("カメラの読み込み中にエラーが発生しました:", error);
     }
 
+    // canvas を video のネイティブ解像度に合わせる
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    // canvas を前面表示
+    canvas.style.zIndex = "2";
+
     async function handleCapture(): Promise<void> {
         let results: Detection[] = [];
         try {
             // ONNXモデルの推論実行
-            results = await inferOnnxModel(session, video, canvas, ctx, tempCanvas, tempCtx);
+            results = await inferOnnxModel(session, video, ctx, tempCanvas, tempCtx);
         } catch (error) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", error);
         }

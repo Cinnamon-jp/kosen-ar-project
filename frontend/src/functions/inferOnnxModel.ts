@@ -32,7 +32,6 @@ interface Conversion {
 export default async function inferOnnxModel(
     session: ort.InferenceSession,
     video: HTMLVideoElement,
-    canvas: HTMLCanvasElement,
     ctx: CanvasRenderingContext2D | null,
     tempCanvas: HTMLCanvasElement,
     tempCtx: CanvasRenderingContext2D | null
@@ -42,7 +41,7 @@ export default async function inferOnnxModel(
         throw new Error("Unable to get 2D context from canvas");
     }
     // テンソルの作成、倍率の取得
-    const [inputTensor, conversion] = preprocess(video, canvas, tempCanvas, tempCtx);
+    const [inputTensor, conversion] = preprocess(video, tempCanvas, tempCtx);
 
     // 入力テンソルのフィード
     const feeds = { [session.inputNames[0]]: inputTensor };
@@ -59,14 +58,9 @@ export default async function inferOnnxModel(
 // 画像前処理: <video> 要素を受け取り、640x640にリサイズしてTensorと倍率を返す
 function preprocess(
     video: HTMLVideoElement,
-    canvas: HTMLCanvasElement,
     tempCanvas: HTMLCanvasElement,
     tempCtx: CanvasRenderingContext2D
 ): [ort.Tensor, Conversion] {
-    // canvas を video のネイティブ解像度に合わせる
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
     // 例外処理

@@ -3,6 +3,8 @@ import type { Detection } from "./inferOnnxModel";
 export default function drawDetections(detections: Detection[], canvas: HTMLCanvasElement): void {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    // キャンバスをクリア
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // 共通設定
     ctx.font = "16px sans-serif";
@@ -20,15 +22,6 @@ export default function drawDetections(detections: Detection[], canvas: HTMLCanv
         ctx.strokeStyle = boxColor;
         ctx.lineWidth = 2;
         ctx.strokeRect(x1, y1, width, height);
-
-        // // 点を中心に描画
-        // const centerX = x1 + width / 2;
-        // const centerY = y1 + height / 2;
-        // const pointRadius = 3;
-        // ctx.fillStyle = "red";
-        // ctx.beginPath();
-        // ctx.arc(centerX, centerY, pointRadius, 0, Math.PI * 2);
-        // ctx.fill();
 
         // ラベル用の背景を描画
         const textWidth = ctx.measureText(label).width;
