@@ -15,14 +15,14 @@ import type { Detection } from "./functions/inferOnnxModel.ts";
 // onnxruntime-web が探しに行く .wasm のベースパスを指定
 ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/";
 
-// ONNX モデルの読み込み
+// 使用するONNXモデルの指定
 const modelName = "/models/yolo11n.onnx";
+
+// ONNXセッションの作成
 const session = await createOnnxSession(modelName);
 
-
-
 // 描画コンテキストの取得
-const ctx = canvas.getContext("2d", { willReadFrequently: true });
+const ctx = canvas.getContext("2d", { willReadFrequently: true }); // 読み取り用に最適化
 
 // モデル推論用に一時的なcanvasを作成
 const tempCanvas = document.createElement("canvas");
