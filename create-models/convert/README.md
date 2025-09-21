@@ -20,4 +20,4 @@ yolo11n.onnx: 10.2 MB
 yolo11s.onnx: 36.3 MB  
 yolo11m.onnx: 76.9 MB  
 
-`PyTorch: starting from 'yolo11m.pt' with input shape (1, 3, 640, 640) BCHW and output shape(s) (1, 300, 6)`
+`input shape (1, 3, 640, 640) BCHW and output shape(s) (1, 300, 6)`
