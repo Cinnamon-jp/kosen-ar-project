@@ -1,2 +1,3 @@
 labelImg-master
-data
+data/images/*
+data/labels/*
