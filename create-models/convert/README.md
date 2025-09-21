@@ -16,8 +16,8 @@ yolo11n.pt: 5.4 MB, 100 layers, 2,616,248 parameters, 6.5 GFLOPs
 yolo11s.pt: 18.4 MB, 100 layers, 9,443,760 parameters, 21.5 GFLOPs  
 yolo11m.pt: 38.8 MB, 125 layers, 20,091,712 parameters, 68.0 GFLOPs  
 
-yolo11n.onnx: 10.2 MB  
+yolo11n.onnx: 10.3 MB  
 yolo11s.onnx: 36.3 MB  
-yolo11m.onnx: 76.9 MB  
+yolo11m.onnx: 77.0 MB  
 
 `input shape (1, 3, 640, 640) BCHW and output shape(s) (1, 300, 6)`

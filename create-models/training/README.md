@@ -2,6 +2,7 @@
 ```
 training
 └── data
+    ├── dataset.yaml
     ├── images
     │   ├── train
     │   │   ├── img1.jpg

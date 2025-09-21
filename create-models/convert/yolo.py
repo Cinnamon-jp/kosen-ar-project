@@ -1,7 +1,7 @@
 from ultralytics import YOLO
 
 # 基となるモデル名を指定
-baseModel = "yolo11n" # yolo11n, yolo11s, yolo11m
+baseModel = "yolo11m" # yolo11n, yolo11s, yolo11m
 
 # PyTorchモデルの格納（存在しない場合、自動ダウンロードされる）
 model = YOLO(baseModel + ".pt")
