@@ -6,11 +6,8 @@
 
 ## モデルの出力・テスト
 ```bash
-# ファイル内の設定に基づいてONNXモデルを出力
-> uv run yolo_export.py
-
-# ファイル内の設定に基づいてONNXモデルをテスト
-> uv run yolo_test.py
+# ファイル内の設定に基づいてONNXモデルを出力 + テストを実行
+> uv run yolo.py
 ```
 **※ONNXモデルはルートディレクトリに出力される（必要に応じて `models/` に移動させること）**
 
