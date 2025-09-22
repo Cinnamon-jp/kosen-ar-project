@@ -12,18 +12,6 @@ const COCO_CLASSES = [
     "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
 ] as const;
 
-// prettier-ignore
-const COCO_CLASSES_ja = [
-    "人", "自転車", "車", "オートバイ", "飛行機", "バス", "電車", "トラック", "ボート", "信号",
-    "消火栓", "停止標識", "パーキングメーター", "ベンチ", "鳥", "猫", "犬", "馬", "羊", "牛",
-    "象", "クマ", "シマウマ", "キリン", "リュックサック", "傘", "ハンドバッグ", "ネクタイ", "スーツケース", "フリスビー",
-    "スキー板", "スノーボード板", "スポーツボール", "凧", "野球バット", "野球グローブ", "スケートボード", "サーフボード", "テニスラケット", "ボトル",
-    "ワイングラス", "カップ", "フォーク", "ナイフ", "スプーン", "ボウル", "バナナ", "リンゴ", "サンドイッチ", "オレンジ",
-    "ブロッコリー", "ニンジン", "ホットドッグ", "ピザ", "ドーナツ", "ケーキ", "椅子", "ソファー", "植木鉢", "ベッド",
-    "テーブル", "トイレ", "テレビ", "ノートパソコン", "マウス", "リモコン", "キーボード", "携帯電話", "電子レンジ", "オーブン",
-    "トースター", "シンク", "冷蔵庫", "本", "時計", "花瓶", "ハサミ", "テディベア", "ヘアドライヤー", "歯ブラシ"
-] as const;
-
 // 検出結果のフォーマット
 export interface Detection {
     className: string;
@@ -164,7 +152,7 @@ function postprocess(results: ort.InferenceSession.OnnxValueMapType, conversion:
         const height = y2 - y1;
 
         // IDとクラス名を紐づけ
-        const className = COCO_CLASSES_ja[classId] ?? "unknown";
+        const className = COCO_CLASSES[classId] ?? "unknown";
 
         return { className, score, x1, y1, width, height };
     }
