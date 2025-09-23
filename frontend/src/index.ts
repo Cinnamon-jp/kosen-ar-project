@@ -12,14 +12,14 @@ import createOnnxSession from "./functions/createOnnxSession.ts";
 
 import type { Detection } from "./functions/inferOnnxModel.ts";
 
-// onnxruntime-web が探しに行く .wasm のベースパスを指定
-ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/";
+// onnxruntime-web が探しに行く .wasm のベースパスを固定バージョンで指定（latest を避ける）
+ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/";
 
-// 使用するONNXモデルの指定
-const modelName = "/models/yolo11n.onnx";
+// 使用するONNXモデルの指定（BASE_URL を用いて環境依存なく解決）
+const modelUrl = new URL("models/yolo11n.onnx", import.meta.env.BASE_URL).href;
 
 // ONNXセッションの作成
-const session = await createOnnxSession(modelName);
+const session = await createOnnxSession(modelUrl);
 
 // 描画コンテキストの取得
 const ctx = canvas.getContext("2d", { willReadFrequently: true }); // 読み取り用に最適化
