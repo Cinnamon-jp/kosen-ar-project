@@ -15,8 +15,8 @@ import type { Detection } from "./functions/inferOnnxModel.ts";
 // onnxruntime-web が探しに行く .wasm のベースパスを固定バージョンで指定（latest を避ける）
 ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/";
 
-// 使用するONNXモデルの指定（BASE_URL を用いて環境依存なく解決）
-const modelUrl = new URL("models/yolo11n.onnx", import.meta.env.BASE_URL).href;
+// 使用するONNXモデルURLの指定
+const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n.onnx`;
 
 // ONNXセッションの作成
 const session = await createOnnxSession(modelUrl);
