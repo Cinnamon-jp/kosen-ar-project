@@ -12,13 +12,13 @@
             if (targetPath && !targetPath.endsWith("/")) {
                 targetPath += "/";
             }
-            // frontend/index.html へリダイレクト
-            window.location.replace(targetPath + "frontend/index.html");
+            // frontend/dist/index.html へリダイレクト
+            window.location.replace(targetPath + "frontend/dist/index.html");
         })();
     </script>
     <noscript>
-        <!-- JavaScript 無効時はサーバルートの frontend/index.html へリダイレクト -->
-        <meta http-equiv="refresh" content="0;url=/frontend/index.html">
+        <!-- JavaScript 無効時はサーバルートの frontend/dist/index.html へリダイレクト -->
+        <meta http-equiv="refresh" content="0;url=/frontend/dist/index.html">
     </noscript>
 </head>
 <body>
