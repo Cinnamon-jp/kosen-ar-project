@@ -9,4 +9,4 @@
 
 ## ビルド時のCDN利用
 * `vite-plugin-cdn-import` により本番ビルドでは `onnxruntime-web` を jsDelivr からロード。
-* URL 内のバージョンは `vite.config.ts` で固定しているため、依存を更新する際は併せて変更が必要。
+* URL内のバージョンは `vite.config.ts` で固定しているため、依存を更新する際は併せて変更が必要。

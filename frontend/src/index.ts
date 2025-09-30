@@ -4,6 +4,7 @@ import "onnxruntime-web/webgpu"; // WebGPUのサイドエフェクトインポ�
 const video = document.getElementById("video") as HTMLVideoElement;
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const captureButton = document.getElementById("capture") as HTMLButtonElement;
+const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
 
 import startCamera from "./functions/startCamera.ts";
 import inferOnnxModel from "./functions/inferOnnxModel.ts";
@@ -11,15 +12,6 @@ import drawDetections from "./functions/drawDetections.ts";
 import createOnnxSession from "./functions/createOnnxSession.ts";
 
 import type { Detection } from "./functions/inferOnnxModel.ts";
-
-// onnxruntime-web が探しに行く .wasm のベースパスを固定バージョンで指定（latest を避ける）
-ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/";
-
-// 使用するONNXモデルURLの指定
-const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n.onnx`;
-
-// ONNXセッションの作成
-const session = await createOnnxSession(modelUrl);
 
 // 描画コンテキストの取得
 const ctx = canvas.getContext("2d", { willReadFrequently: true }); // 読み取り用に最適化
@@ -35,6 +27,17 @@ tempCanvas.height = tempCanvasHeight;
 
 // 一時キャンバスの描画コンテキストを取得
 const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+
+// onnxruntime-web が探しに行く .wasm のベースパスを固定バージョンで指定（latestを避ける）
+ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/";
+
+// 使用するONNXモデルURLの指定
+const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n.onnx`;
+
+// ONNXセッションの作成
+onnxLogo.style.display = "block"; // ローディングアイコンを表示
+const session = await createOnnxSession(modelUrl);
+onnxLogo.style.display = "none"; // ローディングアイコンを非表示
 
 async function main(): Promise<void> {
     // カメラの起動

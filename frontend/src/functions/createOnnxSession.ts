@@ -25,10 +25,10 @@ export default async function createOnnxSession(modelName: string): Promise<ort.
             console.log("ONNX Runtime: WebGPU EP 使用中");
             return session;
         } catch (error) {
-            console.warn("WebGPU セッション作成失敗。WASM にフォールバックします:", error);
+            console.warn("ONNX Runtime: WebGPU セッション作成失敗。WASM にフォールバックします:", error);
         }
     } else {
-        console.log("WebGPU 未対応。WASM を使用します。");
+        console.log("ONNX Runtime: WebGPU 未対応。WASM を使用します。");
     }
 
     // フォールバック (WASM)

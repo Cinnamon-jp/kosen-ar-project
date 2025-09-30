@@ -59,3 +59,34 @@ body {
     transform: translateX(-50%) scale(0.95);
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
 }
+
+#onnx-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 150px;
+    height: 150px;
+    z-index: 3;
+    animation: rotate-and-pulse 3.5s ease-in-out infinite;
+
+    display: none; /* 初期状態では非表示 */
+}
+
+@keyframes rotate-and-pulse {
+    0% {
+        transform: translate(-50%, -50%) rotate(0deg) scale(0.8);
+    }
+    25% {
+        transform: translate(-50%, -50%) rotate(90deg) scale(1.2);
+    }
+    50% {
+        transform: translate(-50%, -50%) rotate(180deg) scale(0.8);
+    }
+    75% {
+        transform: translate(-50%, -50%) rotate(270deg) scale(1.2);
+    }
+    100% {
+        transform: translate(-50%, -50%) rotate(360deg) scale(0.8);
+    }
+}
