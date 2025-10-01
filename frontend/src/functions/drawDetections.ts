@@ -20,7 +20,7 @@ export default function drawDetections(detections: Detection[], canvas: HTMLCanv
 
         // バウンディングボックスを描画
         ctx.strokeStyle = boxColor;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 5;
         ctx.strokeRect(x1, y1, width, height);
 
         // ラベル用の背景を描画

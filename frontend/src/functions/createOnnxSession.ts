@@ -7,7 +7,9 @@ export default async function createOnnxSession(modelName: string): Promise<ort.
     const commonOptions: ort.InferenceSession.SessionOptions = {
         graphOptimizationLevel: "all", // 最適化
         enableCpuMemArena: true, // CPUメモリアリーナ
-        enableMemPattern: true // メモリパターン
+        enableMemPattern: true, // メモリパターン
+        intraOpNumThreads: navigator.hardwareConcurrency || 4, // WASM用の並列実行設定
+        executionMode: "parallel" // 実行モード最適化
     };
 
     // 簡易版
@@ -20,7 +22,13 @@ export default async function createOnnxSession(modelName: string): Promise<ort.
         try {
             const session = await ort.InferenceSession.create(modelName, {
                 ...commonOptions,
-                executionProviders: ["webgpu", "wasm"] // 先頭: 第一候補
+                executionProviders: [
+                    {
+                        name: "webgpu",
+                        preferredLayout: "NHWC" // レイアウト最適化
+                    },
+                    "wasm"
+                ]
             });
             console.log("ONNX Runtime: WebGPU EP 使用中");
             return session;
