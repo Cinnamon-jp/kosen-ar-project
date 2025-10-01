@@ -12,6 +12,7 @@ import drawDetections from "./functions/drawDetections.ts";
 import createOnnxSession from "./functions/createOnnxSession.ts";
 
 import type { Detection } from "./functions/inferOnnxModel.ts";
+import type { TYPE_COCO_CLASSES } from "./functions/inferOnnxModel.ts";
 
 // 描画コンテキストの取得
 const ctx = canvas.getContext("2d", { willReadFrequently: true }); // 読み取り用に最適化
@@ -53,11 +54,14 @@ async function main(): Promise<void> {
     // canvas を前面表示
     canvas.style.zIndex = "2";
 
+    // 抽出したいクラス名 (空配列なら全クラス対象)
+    const targetClassNames: TYPE_COCO_CLASSES[] = ["person"];
+
     async function handleCapture(): Promise<void> {
         let results: Detection[] = [];
         try {
             // ONNXモデルの推論実行
-            results = await inferOnnxModel(session, video, ctx, tempCanvas, tempCtx, "person");
+            results = await inferOnnxModel(session, video, ctx, tempCanvas, tempCtx, targetClassNames);
         } catch (error) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", error);
         }

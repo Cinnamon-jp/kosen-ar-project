@@ -12,7 +12,7 @@ const COCO_CLASSES = [
     "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
 ] as const;
 
-type TYPE_COCO_CLASSES = (typeof COCO_CLASSES)[number]; // COCO_CLASSESのいずれかの文字列
+export type TYPE_COCO_CLASSES = (typeof COCO_CLASSES)[number]; // COCO_CLASSESのいずれかの文字列
 
 // 検出結果のフォーマット
 export interface Detection {
@@ -38,7 +38,7 @@ export default async function inferOnnxModel(
     ctx: CanvasRenderingContext2D | null,
     tempCanvas: HTMLCanvasElement,
     tempCtx: CanvasRenderingContext2D | null,
-    targetClassName?: TYPE_COCO_CLASSES // 抽出したいクラス名 (省略可能)
+    targetClassNames: TYPE_COCO_CLASSES[] // 抽出したいクラス名 (空配列なら全クラス対象)
 ): Promise<Detection[]> {
     // 例外処理
     if (!ctx || !tempCtx) {
@@ -57,8 +57,8 @@ export default async function inferOnnxModel(
     const detections = postprocess(results, conversion);
 
     // 特定のクラス名のみ抽出
-    if (targetClassName) {
-        return extractTargetClassName(detections, targetClassName);
+    if (targetClassNames.length > 0) {
+        return extractTargetClassName(detections, targetClassNames);
     }
 
     return detections;
@@ -206,6 +206,11 @@ function postprocess(results: ort.InferenceSession.OnnxValueMapType, conversion:
 }
 
 // 指定されたクラス名の検出結果のみを抽出する関数
-function extractTargetClassName(detections: Detection[], targetClassName: TYPE_COCO_CLASSES): Detection[] {
-    return detections.filter((detection) => detection.className === targetClassName);
+function extractTargetClassName(
+    detections: Detection[],
+    targetClassNames: TYPE_COCO_CLASSES[]
+): Detection[] {
+    return detections.filter(detection =>
+        targetClassNames.includes(detection.className)
+    );
 }
