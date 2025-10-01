@@ -12,9 +12,11 @@ const COCO_CLASSES = [
     "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
 ] as const;
 
+type TYPE_COCO_CLASSES = (typeof COCO_CLASSES)[number]; // COCO_CLASSESのいずれかの文字列
+
 // 検出結果のフォーマット
 export interface Detection {
-    className: string;
+    className: TYPE_COCO_CLASSES; // COCOクラス名に限定
     score: number;
     x1: number;
     y1: number;
@@ -35,14 +37,15 @@ export default async function inferOnnxModel(
     video: HTMLVideoElement,
     ctx: CanvasRenderingContext2D | null,
     tempCanvas: HTMLCanvasElement,
-    tempCtx: CanvasRenderingContext2D | null
+    tempCtx: CanvasRenderingContext2D | null,
+    targetClassName?: TYPE_COCO_CLASSES // 抽出したいクラス名 (省略可能)
 ): Promise<Detection[]> {
     // 例外処理
     if (!ctx || !tempCtx) {
         throw new Error("Unable to get 2D context from canvas");
     }
     // テンソルの作成、倍率の取得
-    const [inputTensor, conversion] = preprocess(video, tempCanvas, tempCtx);
+    const [inputTensor, conversion] = preprocess(video, tempCanvas.width, tempCanvas.height, tempCtx);
 
     // 入力テンソルのフィード
     const feeds = { [session.inputNames[0]]: inputTensor };
@@ -53,25 +56,28 @@ export default async function inferOnnxModel(
     // 検出結果の後処理
     const detections = postprocess(results, conversion);
 
+    // 特定のクラス名のみ抽出
+    if (targetClassName) {
+        return extractTargetClassName(detections, targetClassName);
+    }
+
     return detections;
 }
 
 // 画像前処理: <video> 要素を受け取り、640x640にリサイズしてTensorと倍率を返す
 function preprocess(
     video: HTMLVideoElement,
-    tempCanvas: HTMLCanvasElement,
+    tempCanvasWidth: number,
+    tempCanvasHeight: number,
     tempCtx: CanvasRenderingContext2D
 ): [ort.Tensor, Conversion] {
+    // videoのサイズを設定
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
     // 例外処理
     if (videoWidth === 0 || videoHeight === 0) {
         throw new Error("Video width or height is zero");
     }
-
-    // 一時canvasのサイズを取得
-    const tempCanvasWidth = tempCanvas.width;
-    const tempCanvasHeight = tempCanvas.height;
 
     // アスペクト比の計算
     const aspect = videoWidth / videoHeight;
@@ -84,7 +90,7 @@ function preprocess(
     // canvasを灰色で塗りつぶし (パディング部分)
     const PAD_COLOR = 114; // YOLO11の学習時に使われたパディングの色
     tempCtx.fillStyle = `rgb(${PAD_COLOR}, ${PAD_COLOR}, ${PAD_COLOR})`;
-    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    tempCtx.fillRect(0, 0, tempCanvasWidth, tempCanvasHeight);
 
     // 描画先のx,y座標を計算 (中央寄せ)
     const targetX = (tempCanvasWidth - targetWidth) / 2;
@@ -94,14 +100,18 @@ function preprocess(
     // pretty-ignore
     tempCtx.drawImage(
         video,
-        0, 0, // 切り出し開始位置
-        videoWidth, videoHeight, // 切り出しサイズ
-        targetX, targetY, // 描画先の座標 (中央寄せ)
-        targetWidth, targetHeight // 描画先のサイズ
+        0,
+        0, // 切り出し開始位置
+        videoWidth,
+        videoHeight, // 切り出しサイズ
+        targetX,
+        targetY, // 描画先の座標 (中央寄せ)
+        targetWidth,
+        targetHeight // 描画先のサイズ
     );
 
     // ピクセルデータを取得
-    const { data } = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+    const { data } = tempCtx.getImageData(0, 0, tempCanvasWidth, tempCanvasHeight);
     const size = tempCanvasWidth * tempCanvasHeight;
 
     const floatArray = new Float32Array(3 * size);
@@ -126,7 +136,7 @@ function preprocess(
     };
 
     // 一時canvasをクリア
-    tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+    tempCtx.clearRect(0, 0, tempCanvasWidth, tempCanvasHeight);
 
     return [new ort.Tensor("float32", floatArray, [1, 3, tempCanvasHeight, tempCanvasWidth]), conversion];
 }
@@ -193,4 +203,9 @@ function postprocess(results: ort.InferenceSession.OnnxValueMapType, conversion:
 
     // モデルにNMSを内蔵しているので、追加のNMS処理は不要
     return detections;
+}
+
+// 指定されたクラス名の検出結果のみを抽出する関数
+function extractTargetClassName(detections: Detection[], targetClassName: TYPE_COCO_CLASSES): Detection[] {
+    return detections.filter((detection) => detection.className === targetClassName);
 }

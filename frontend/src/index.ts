@@ -57,7 +57,7 @@ async function main(): Promise<void> {
         let results: Detection[] = [];
         try {
             // ONNXモデルの推論実行
-            results = await inferOnnxModel(session, video, ctx, tempCanvas, tempCtx);
+            results = await inferOnnxModel(session, video, ctx, tempCanvas, tempCtx, "person");
         } catch (error) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", error);
         }
