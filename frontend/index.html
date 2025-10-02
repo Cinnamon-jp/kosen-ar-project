@@ -26,13 +26,12 @@
           </svg>
         </button>
         <div id="camera-menu" class="camera-menu hidden">
-          <button class="camera-option" data-camera="environment">背面カメラ</button>
-          <button class="camera-option" data-camera="user">前面カメラ</button>
-          <button class="camera-option" data-camera="telephoto">望遠カメラ</button>
-          <button class="camera-option" data-camera="wide-angle">広角カメラ</button>
-          <button class="camera-option" data-camera="ultra-wide">超広角カメラ</button>
+          <!-- カメラオプションは動的に生成されます -->
         </div>
       </div>
+      
+      <!-- デバッグ情報表示 (開発時のみ) -->
+      <div id="debug-info" style="display: none;"></div>
     </div>
     
     <script type="module" src="./src/index.ts"></script>
