@@ -1,5 +1,5 @@
 import type { CameraType } from "./startCamera";
-import startCamera, { analyzeAvailableCameras } from "./startCamera";
+import startCamera, { analyzeAvailableCameras, startCameraByDeviceId } from "./startCamera";
 
 interface CameraControlsOptions {
     video: HTMLVideoElement;
@@ -9,17 +9,8 @@ interface CameraControlsOptions {
     defaultCameraType?: CameraType;
 }
 
-// カメラタイプの表示名
-const cameraTypeLabels: Record<CameraType, string> = {
-    'environment': '背面カメラ',
-    'user': '前面カメラ',
-    'telephoto': '望遠カメラ',
-    'wide-angle': '広角カメラ',
-    'ultra-wide': '超広角カメラ'
-};
-
-// カメラメニューを動的に生成する関数
-async function buildCameraMenu(cameraMenu: HTMLDivElement): Promise<CameraType[]> {
+// カメラメニューを動的に生成する関数（ラベルベース）
+async function buildCameraMenu(cameraMenu: HTMLDivElement): Promise<Map<string, string>> {
     console.log('利用可能なカメラを分析中...');
     const availableCameras = await analyzeAvailableCameras();
     
@@ -28,68 +19,64 @@ async function buildCameraMenu(cameraMenu: HTMLDivElement): Promise<CameraType[]
     // メニューをクリア
     cameraMenu.innerHTML = '';
     
-    // 利用可能なカメラタイプのリスト
-    const availableTypes: CameraType[] = [];
+    // deviceIdとラベルのマップ
+    const deviceIdMap = new Map<string, string>();
     
-    const backCameraCount = availableCameras.backCameras.length;
-    
-    // 前面カメラ
-    if (availableCameras.hasUser) {
-        availableTypes.push('user');
-    }
-    
-    // 背面カメラが1つの場合：「背面カメラ」のみ表示（広角カメラとして表示しない）
-    if (backCameraCount === 1) {
-        availableTypes.push('environment');
-    }
-    // 背面カメラが2つの場合：「広角カメラ」と「望遠カメラ」を表示
-    else if (backCameraCount === 2) {
-        availableTypes.push('wide-angle');
-        availableTypes.push('telephoto');
-    }
-    // 背面カメラが3つ以上の場合：「広角」「望遠」「超広角」を表示
-    else if (backCameraCount >= 3) {
-        availableTypes.push('wide-angle');
-        availableTypes.push('telephoto');
-        availableTypes.push('ultra-wide');
-    }
-    // 背面カメラがない場合（念のため）
-    else if (availableCameras.hasEnvironment) {
-        availableTypes.push('environment');
-    }
-    
-    // メニュー項目を動的に生成
-    availableTypes.forEach((type) => {
+    // 前面カメラを追加
+    availableCameras.frontCameras.forEach((camera, index) => {
         const button = document.createElement('button');
         button.className = 'camera-option';
-        button.setAttribute('data-camera', type);
-        button.textContent = cameraTypeLabels[type];
+        const deviceKey = `front-${camera.deviceId}`;
+        button.setAttribute('data-device-id', camera.deviceId);
+        button.setAttribute('data-camera-type', 'user');
+        
+        // ラベルを表示（インデックス付き）
+        const displayLabel = availableCameras.frontCameras.length > 1 
+            ? `${camera.label || `前面カメラ ${index + 1}`}`
+            : camera.label || '前面カメラ';
+        
+        button.textContent = displayLabel;
         cameraMenu.appendChild(button);
+        deviceIdMap.set(deviceKey, camera.deviceId);
     });
     
-    console.log(`${availableTypes.length}個のカメラオプションを生成しました:`, availableTypes);
+    // 背面カメラを追加
+    availableCameras.backCameras.forEach((camera, index) => {
+        const button = document.createElement('button');
+        button.className = 'camera-option';
+        const deviceKey = `back-${camera.deviceId}`;
+        button.setAttribute('data-device-id', camera.deviceId);
+        button.setAttribute('data-camera-type', 'environment');
+        
+        // ラベルを表示（インデックス付き）
+        const displayLabel = availableCameras.backCameras.length > 1 
+            ? `${camera.label || `背面カメラ ${index + 1}`}`
+            : camera.label || '背面カメラ';
+        
+        button.textContent = displayLabel;
+        cameraMenu.appendChild(button);
+        deviceIdMap.set(deviceKey, camera.deviceId);
+    });
     
-    return availableTypes;
+    const totalCameras = availableCameras.frontCameras.length + availableCameras.backCameras.length;
+    console.log(`${totalCameras}個のカメラオプションを生成しました`);
+    
+    return deviceIdMap;
 }
 
 export default async function setupCameraControls(options: CameraControlsOptions): Promise<{
     getCurrentStream: () => MediaStream | null;
-    getCameraType: () => CameraType;
+    getCurrentDeviceId: () => string | null;
     setCurrentStream: (stream: MediaStream | null) => void;
+    setCurrentDeviceId: (deviceId: string | null) => void;
 }> {
-    const { video, canvas, cameraToggle, cameraMenu, defaultCameraType = "environment" } = options;
+    const { video, canvas, cameraToggle, cameraMenu } = options;
 
-    let cameraType: CameraType = defaultCameraType;
+    let currentDeviceId: string | null = null;
     let currentStream: MediaStream | null = null;
 
     // カメラメニューを動的に生成
-    const availableTypes = await buildCameraMenu(cameraMenu);
-    
-    // デフォルトのカメラタイプが利用可能でない場合、最初の利用可能なタイプを使用
-    if (!availableTypes.includes(cameraType) && availableTypes.length > 0) {
-        cameraType = availableTypes[0];
-        console.log(`デフォルトカメラが利用不可のため、${cameraType}を使用します`);
-    }
+    await buildCameraMenu(cameraMenu);
 
     // カメラオプションを再取得（動的に生成されたため）
     const cameraOptions = cameraMenu.querySelectorAll('.camera-option') as NodeListOf<HTMLButtonElement>;
@@ -110,16 +97,21 @@ export default async function setupCameraControls(options: CameraControlsOptions
     // カメラ選択オプションのクリックイベント
     cameraOptions.forEach((option) => {
         option.addEventListener("click", async () => {
-            const selectedCamera = option.getAttribute("data-camera") as CameraType;
+            const selectedDeviceId = option.getAttribute("data-device-id");
+
+            if (!selectedDeviceId) {
+                console.error("デバイスIDが取得できませんでした");
+                return;
+            }
 
             // 既に選択されているカメラと同じ場合は何もしない
-            if (selectedCamera === cameraType) {
+            if (selectedDeviceId === currentDeviceId) {
                 cameraMenu.classList.add("hidden");
                 return;
             }
 
-            // カメラタイプを更新
-            cameraType = selectedCamera;
+            // カメラIDを更新
+            currentDeviceId = selectedDeviceId;
 
             // 現在のストリームを停止
             if (currentStream) {
@@ -128,7 +120,8 @@ export default async function setupCameraControls(options: CameraControlsOptions
 
             // 新しいカメラで再起動
             try {
-                await startCamera(video, cameraType);
+                console.log(`デバイスID ${selectedDeviceId} を使用してカメラを起動`);
+                await startCameraByDeviceId(video, selectedDeviceId);
                 currentStream = video.srcObject as MediaStream;
 
                 // ビデオのメタデータが読み込まれるのを待つ
@@ -155,7 +148,7 @@ export default async function setupCameraControls(options: CameraControlsOptions
                 cameraOptions.forEach((opt) => opt.classList.remove("active"));
                 option.classList.add("active");
 
-                console.log(`カメラを切り替えました: ${selectedCamera}`);
+                console.log(`カメラを切り替えました: ${option.textContent}`);
             } catch (error) {
                 console.error("カメラの切り替え中にエラーが発生しました:", error);
                 alert("カメラの切り替えに失敗しました。");
@@ -166,18 +159,21 @@ export default async function setupCameraControls(options: CameraControlsOptions
         });
     });
 
-    // デフォルトのカメラオプションをアクティブに設定
-    const defaultOption = cameraMenu.querySelector(`[data-camera="${cameraType}"]`) as HTMLButtonElement;
-    if (defaultOption) {
-        defaultOption.classList.add("active");
+    // デフォルトで最初のカメラオプションをアクティブに設定
+    if (cameraOptions.length > 0) {
+        cameraOptions[0].classList.add("active");
+        currentDeviceId = cameraOptions[0].getAttribute("data-device-id");
     }
 
-    // 現在のストリームとカメラタイプを取得・設定する関数を返す
+    // 現在のストリームとデバイスIDを取得・設定する関数を返す
     return {
         getCurrentStream: () => currentStream,
-        getCameraType: () => cameraType,
+        getCurrentDeviceId: () => currentDeviceId,
         setCurrentStream: (stream: MediaStream | null) => {
             currentStream = stream;
+        },
+        setCurrentDeviceId: (deviceId: string | null) => {
+            currentDeviceId = deviceId;
         },
     };
 }

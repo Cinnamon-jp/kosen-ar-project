@@ -53,14 +53,13 @@ async function main(): Promise<void> {
         defaultCameraType: "environment",
     });
 
-    // カメラの起動
-    const stream = await initializeCamera(video, cameraControls.getCameraType(), (stream) => {
+    // カメラの起動（デフォルトで背面カメラを使用）
+    const stream = await initializeCamera(video, "environment", (stream) => {
         console.log("カメラが初期化されました:", stream);
         // 初期化時のストリームを保存
         cameraControls.setCurrentStream(stream);
     });
     onnxLogo.style.display = "none"; // ローディングアイコンを非表示
-
 
     if (!stream) {
         throw new Error("カメラの初期化に失敗しました");

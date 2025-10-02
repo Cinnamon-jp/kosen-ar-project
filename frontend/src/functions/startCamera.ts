@@ -33,8 +33,26 @@ export interface AvailableCameras {
     frontCameras: CameraDeviceInfo[];
 }
 
+// カメラ情報のキャッシュ
+let cameraDevicesCache: CameraDeviceInfo[] | null = null;
+let cameraAnalysisCache: AvailableCameras | null = null;
+
+// キャッシュをクリアする関数（必要に応じて外部から呼び出し可能）
+export function clearCameraCache(): void {
+    cameraDevicesCache = null;
+    cameraAnalysisCache = null;
+    console.log('カメラキャッシュをクリアしました');
+}
+
 // 利用可能なすべてのカメラを分析する関数（外部から呼び出し可能）
 export async function analyzeAvailableCameras(): Promise<AvailableCameras> {
+    // キャッシュがある場合はそれを返す
+    if (cameraAnalysisCache) {
+        console.log('キャッシュされたカメラ分析結果を使用');
+        return cameraAnalysisCache;
+    }
+
+    console.log('カメラを分析中...');
     const allCameras = await getAllCameraDevices();
     
     const backCameras = allCameras.filter(info => 
@@ -70,7 +88,7 @@ export async function analyzeAvailableCameras(): Promise<AvailableCameras> {
         camera.label.toLowerCase().includes('超広角')
     ) || backCameras.length >= 3;
 
-    return {
+    const result: AvailableCameras = {
         hasUser: frontCameras.length > 0,
         hasEnvironment: backCameras.length > 0,
         hasTelephoto,
@@ -79,10 +97,24 @@ export async function analyzeAvailableCameras(): Promise<AvailableCameras> {
         backCameras,
         frontCameras
     };
+
+    // 結果をキャッシュ
+    cameraAnalysisCache = result;
+    console.log('カメラ分析結果をキャッシュしました');
+
+    return result;
 }
 
 // すべてのカメラデバイスの情報を取得する関数
 async function getAllCameraDevices(): Promise<CameraDeviceInfo[]> {
+    // キャッシュがある場合はそれを返す
+    if (cameraDevicesCache) {
+        console.log('キャッシュされたカメラデバイス情報を使用');
+        return cameraDevicesCache;
+    }
+
+    console.log('カメラデバイス情報を取得中...');
+
     // まず、権限を取得するために一度カメラにアクセス
     try {
         const tempStream = await navigator.mediaDevices.getUserMedia({ 
@@ -135,11 +167,21 @@ async function getAllCameraDevices(): Promise<CameraDeviceInfo[]> {
         }
     }
 
+    // 結果をキャッシュ
+    cameraDevicesCache = cameraInfos;
+    console.log('カメラデバイス情報をキャッシュしました');
+
     return cameraInfos;
 }
 
 // 利用可能なすべての背面カメラを取得する関数
 async function getAvailableBackCameras(): Promise<CameraDeviceInfo[]> {
+    // キャッシュがある場合は直接フィルタリング
+    if (cameraAnalysisCache) {
+        console.log('キャッシュから背面カメラ情報を取得');
+        return cameraAnalysisCache.backCameras;
+    }
+
     const allCameras = await getAllCameraDevices();
     
     // 背面カメラのみをフィルタリング
@@ -228,6 +270,35 @@ async function selectCameraDevice(
     return undefined;
 }
 
+// デバイスIDを直接指定してカメラを起動する関数
+export async function startCameraByDeviceId(
+    video: HTMLVideoElement,
+    deviceId: string
+): Promise<void> {
+    console.log(`デバイスID ${deviceId} でカメラを起動`);
+
+    const videoConstraints: MediaTrackConstraints = {
+        deviceId: { exact: deviceId }
+    };
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: videoConstraints
+        });
+
+        const track = stream.getVideoTracks()[0];
+        console.log('カメラストリームの取得に成功');
+        console.log('使用中のカメラ:', track.label);
+        console.log('カメラ設定:', track.getSettings());
+
+        video.srcObject = stream;
+        await video.play();
+    } catch (error) {
+        console.error('指定されたデバイスIDでカメラの起動に失敗:', error);
+        throw error;
+    }
+}
+
 export default async function startCamera(
     video: HTMLVideoElement,
     cameraType: CameraType
@@ -285,79 +356,34 @@ export default async function startCamera(
     } else {
         // カメラタイプに応じてデバイスを選択
         selectedDeviceId = await selectCameraDevice(cameraType, backCameras);
+        console.log(`選択されたデバイスID: ${selectedDeviceId || 'なし'}`);
     }
 
-    // 1) 指定されたカメラで解像度を取得
-    try {
-        const constraints: MediaTrackConstraints = {};
-        
-        if (selectedDeviceId) {
-            constraints.deviceId = { exact: selectedDeviceId };
-            console.log(`デバイスID ${selectedDeviceId} を使用してカメラを初期化します`);
-        } else {
-            constraints.facingMode = { ideal: 'environment' };
-            console.log('デフォルトの背面カメラを使用します');
-        }
-
-        const testStream = await navigator.mediaDevices.getUserMedia({
-            video: constraints
-        });
-        const testTrack = testStream.getVideoTracks()[0];
-        const testCaps = testTrack.getCapabilities();
-        maxWidth = testCaps.width?.max;
-        maxHeight = testCaps.height?.max;
-        
-        console.log('選択されたカメラの能力:', testCaps);
-        console.log('使用中のカメラ:', testTrack.label);
-        
-        testTrack.stop();
-    } catch (errTest) {
-        console.warn("指定されたカメラの初期化に失敗。フォールバックします。", errTest);
-        
-        // フォールバック: 背面カメラで再試行
-        try {
-            const envStream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { ideal: "environment" } }
-            });
-            const envTrack = envStream.getVideoTracks()[0];
-            const envCaps = envTrack.getCapabilities();
-            maxWidth = envCaps.width?.max;
-            maxHeight = envCaps.height?.max;
-            envTrack.stop();
-            selectedDeviceId = undefined; // デバイスIDをリセット
-        } catch (errEnv) {
-            console.warn("背面カメラの初期化に失敗。前面カメラを試行します。", errEnv);
-            // 前面カメラで解像度を取得
-            try {
-                const userStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: "user" } }
-                });
-                const userTrack = userStream.getVideoTracks()[0];
-                const userCaps = userTrack.getCapabilities();
-                maxWidth = userCaps.width?.max;
-                maxHeight = userCaps.height?.max;
-                userTrack.stop();
-            } catch (errUser) {
-                console.warn("前面カメラの初期化にも失敗。デフォルト解像度にフォールバックします。", errUser);
-            }
-        }
-    }
-
-    // 2) 解像度制約を組み立て
+    // 解像度制約を組み立て
     const videoConstraints: MediaTrackConstraints = {};
     
     if (selectedDeviceId) {
         videoConstraints.deviceId = { exact: selectedDeviceId };
-        console.log(`最終的なストリーム取得にデバイスID ${selectedDeviceId} を使用`);
+        console.log(`デバイスID ${selectedDeviceId} を使用してストリームを取得`);
     } else {
         videoConstraints.facingMode = { ideal: 'environment' };
-        console.log('最終的なストリーム取得にfacingMode: environmentを使用');
+        console.log('facingMode: environmentを使用してストリームを取得');
+    }
+    
+    // キャッシュから解像度情報を取得（可能な場合）
+    if (selectedDeviceId && backCameras.length > 0) {
+        const cameraInfo = backCameras.find(cam => cam.deviceId === selectedDeviceId);
+        if (cameraInfo?.capabilities) {
+            maxWidth = cameraInfo.capabilities.width?.max;
+            maxHeight = cameraInfo.capabilities.height?.max;
+            console.log(`キャッシュから解像度を取得: ${maxWidth}x${maxHeight}`);
+        }
     }
     
     if (maxWidth) videoConstraints.width = { ideal: maxWidth };
     if (maxHeight) videoConstraints.height = { ideal: maxHeight };
 
-    // 3) 指定されたカメラでストリーム取得
+    // 指定されたカメラでストリーム取得
     let stream: MediaStream;
     try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -365,31 +391,43 @@ export default async function startCamera(
         });
         console.log('カメラストリームの取得に成功');
     } catch (errStream) {
-        console.warn("指定されたカメラの取得に失敗。フォールバックします。", errStream);
+        console.error("指定されたカメラの取得に失敗:", errStream);
+        console.warn("selectedDeviceIdを保持したままフォールバックを試行");
         
-        // フォールバック: 背面カメラで再試行
-        try {
-            const fallbackConstraints: MediaTrackConstraints = {
-                facingMode: { ideal: "environment" }
-            };
-            if (maxWidth) fallbackConstraints.width = { ideal: maxWidth };
-            if (maxHeight) fallbackConstraints.height = { ideal: maxHeight };
-            
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: fallbackConstraints
-            });
-            console.log('フォールバック（背面カメラ）でストリーム取得に成功');
-        } catch (errEnvStream) {
-            console.warn("背面カメラの取得に失敗。前面カメラを試行します。", errEnvStream);
+        // フォールバック: デバイスIDを維持しつつ、解像度制約を緩和
+        if (selectedDeviceId) {
+            try {
+                // 解像度制約なしで再試行
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { deviceId: { exact: selectedDeviceId } }
+                });
+                console.log('解像度制約なしでストリーム取得に成功');
+            } catch (errRetry) {
+                console.error("デバイスID指定でも失敗:", errRetry);
+                // 最終フォールバック: デフォルト背面カメラ
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: { ideal: "environment" } }
+                    });
+                    console.log('フォールバック（デフォルト背面カメラ）でストリーム取得に成功');
+                } catch (errFinal) {
+                    console.error("すべてのフォールバックが失敗:", errFinal);
+                    // 最後の手段：制約なし
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    console.log('制約なしでストリーム取得に成功');
+                }
+            }
+        } else {
+            // selectedDeviceIdがない場合のフォールバック
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: "user" } }
+                    video: { facingMode: { ideal: "environment" } }
                 });
-                console.log('フォールバック（前面カメラ）でストリーム取得に成功');
-            } catch (errUserStream) {
-                console.warn("前面カメラの取得にも失敗。解像度指定なしで再試行します。", errUserStream);
+                console.log('フォールバック（背面カメラ）でストリーム取得に成功');
+            } catch (errEnvStream) {
+                console.warn("背面カメラの取得に失敗。制約なしで再試行:", errEnvStream);
                 stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                console.log('フォールバック（デフォルト）でストリーム取得に成功');
+                console.log('制約なしでストリーム取得に成功');
             }
         }
     }
