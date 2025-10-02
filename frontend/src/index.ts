@@ -5,13 +5,11 @@ const video = document.getElementById("video") as HTMLVideoElement;
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const captureButton = document.getElementById("capture") as HTMLButtonElement;
 const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
-const cameraToggle = document.getElementById("camera-toggle") as HTMLButtonElement;
-const cameraMenu = document.getElementById("camera-menu") as HTMLDivElement;
 
+import startCamera from "./functions/startCamera.ts";
 import inferOnnxModel from "./functions/inferOnnxModel.ts";
 import drawDetections from "./functions/drawDetections.ts";
 import createOnnxSession from "./functions/createOnnxSession.ts";
-import setupCameraControls, { initializeCamera } from "./functions/setupCameraControls.ts";
 
 import type { Detection } from "./functions/inferOnnxModel.ts";
 import type { TYPE_COCO_CLASSES } from "./functions/inferOnnxModel.ts";
@@ -43,26 +41,11 @@ const session = await createOnnxSession(modelUrl);
 onnxLogo.style.display = "none"; // ローディングアイコンを非表示
 
 async function main(): Promise<void> {
-    onnxLogo.style.display = "block"; // ローディングアイコンを表示
-    // カメラコントロールのセットアップ（利用可能なカメラを分析して動的にメニューを生成）
-    const cameraControls = await setupCameraControls({
-        video,
-        canvas,
-        cameraToggle,
-        cameraMenu,
-        defaultCameraType: "environment",
-    });
-
-    // カメラの起動（デフォルトで背面カメラを使用）
-    const stream = await initializeCamera(video, "environment", (stream) => {
-        console.log("カメラが初期化されました:", stream);
-        // 初期化時のストリームを保存
-        cameraControls.setCurrentStream(stream);
-    });
-    onnxLogo.style.display = "none"; // ローディングアイコンを非表示
-
-    if (!stream) {
-        throw new Error("カメラの初期化に失敗しました");
+    // カメラの起動
+    try {
+        await startCamera(video);
+    } catch (error) {
+        console.error("カメラの読み込み中にエラーが発生しました:", error);
     }
 
     // canvas を video のネイティブ解像度に合わせる

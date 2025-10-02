@@ -5,7 +5,6 @@
     <link rel="stylesheet" href="./src/index.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>kosen-ar-project</title>
-    <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script><!-- A-FrameのCDNインポート -->
   </head>
 
   <body>
@@ -14,24 +13,6 @@
       <canvas id="canvas"></canvas>
       <button id="capture"></button>
       <img id="onnx-logo" src="/assets/onnx-logo.svg" alt="ONNX Logo"><!-- ローディングアイコン --->
-      
-      <!-- カメラ選択ボタン -->
-      <div id="camera-controls">
-        <button id="camera-toggle" class="camera-btn" title="カメラを切り替え">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 12s2.545-5 7-5c4.454 0 7 5 7 5s-2.546 5-7 5c-4.455 0-7-5-7-5z"/>
-            <path d="M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
-            <path d="M21 17v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2"/>
-            <path d="M21 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/>
-          </svg>
-        </button>
-        <div id="camera-menu" class="camera-menu hidden">
-          <!-- カメラオプションは動的に生成されます -->
-        </div>
-      </div>
-      
-      <!-- デバッグ情報表示 (開発時のみ) -->
-      <div id="debug-info" style="display: none;"></div>
     </div>
     
     <script type="module" src="./src/index.ts"></script>

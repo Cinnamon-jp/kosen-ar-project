@@ -111,7 +111,7 @@ function preprocess(
     );
 
     // ピクセルデータを取得
-    const { data }: { data: Uint8ClampedArray } = tempCtx.getImageData(0, 0, tempCanvasWidth, tempCanvasHeight);
+    const { data } = tempCtx.getImageData(0, 0, tempCanvasWidth, tempCanvasHeight);
     const size = tempCanvasWidth * tempCanvasHeight;
 
     const floatArray = new Float32Array(3 * size);
