@@ -1,22 +1,22 @@
 import * as ort from "onnxruntime-web";
 
 // prettier-ignore
-const COCO_CLASSES = [
-    "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
-    "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
-    "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
-    "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle",
-    "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange",
-    "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed",
-    "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven",
-    "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
-] as const;
+// const COCO_CLASSES = [
+//     "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
+//     "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
+//     "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+//     "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle",
+//     "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange",
+//     "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed",
+//     "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven",
+//     "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
+// ] as const;
 
-export type TYPE_COCO_CLASSES = (typeof COCO_CLASSES)[number]; // COCO_CLASSESのいずれかの文字列
+// export type TYPE_COCO_CLASSES = (typeof COCO_CLASSES)[number]; // COCO_CLASSESのいずれかの文字列
 
 // 検出結果のフォーマット
 export interface Detection {
-    className: TYPE_COCO_CLASSES; // COCOクラス名に限定
+    classId: number;
     score: number;
     x1: number;
     y1: number;
@@ -38,21 +38,18 @@ const TENSOR_SIZE = 640 * 640 * 3; // 640x640のRGB画像
 
 // パフォーマンス最適化: 定数を事前計算
 const INV_255 = 1 / 255; // 除算を乗算に変換するための逆数
-const PAD_COLOR = 114; // YOLO11の学習時に使われたパディングの色
-const PAD_STYLE = `rgb(${PAD_COLOR}, ${PAD_COLOR}, ${PAD_COLOR})`; // fillStyleを定数化
+const PAD_COLOR = "rgb(114, 114, 114)"; // YOLO11の学習時に使われたパディングの色
 
 export default async function inferOnnxModel(
     session: ort.InferenceSession,
     video: HTMLVideoElement,
-    ctx: CanvasRenderingContext2D | null,
     tempCanvas: HTMLCanvasElement,
     tempCtx: CanvasRenderingContext2D | null,
-    targetClassNames: TYPE_COCO_CLASSES[] // 抽出したいクラス名 (空配列なら全クラス対象)
+    targetClasses: number[] // 抽出したいクラスID (空配列なら全クラス対象)
 ): Promise<Detection[]> {
     // 例外処理
-    if (!ctx || !tempCtx) {
-        throw new Error("Unable to get 2D context from canvas");
-    }
+    if (!tempCtx) throw new Error("Unable to get 2D context from canvas");
+
     // テンソルの作成、倍率の取得
     const [inputTensor, conversion] = preprocess(video, tempCanvas.width, tempCanvas.height, tempCtx);
 
@@ -66,10 +63,9 @@ export default async function inferOnnxModel(
     const detections = postprocess(results, conversion);
 
     // 特定のクラス名のみ抽出
-    if (targetClassNames.length > 0) {
-        return extractTargetClassName(detections, targetClassNames);
+    if (targetClasses.length > 0) {
+        return extractTargetClassName(detections, targetClasses);
     }
-
     return detections;
 }
 
@@ -93,11 +89,13 @@ function preprocess(
 
     // 640pxに収まるようにリサイズ後のサイズを計算 -> 整数に丸める
     // aspect >= 1 (横長) : aspect < 1 (縦長)
-    const targetWidth: number = aspect >= 1 ? tempCanvasWidth : Math.round(videoWidth * (tempCanvasHeight / videoHeight));
-    const targetHeight: number = aspect >= 1 ? Math.round(videoHeight * (tempCanvasWidth / videoWidth)) : tempCanvasHeight;
+    const targetWidth: number =
+        aspect >= 1 ? tempCanvasWidth : Math.round(videoWidth * (tempCanvasHeight / videoHeight));
+    const targetHeight: number =
+        aspect >= 1 ? Math.round(videoHeight * (tempCanvasWidth / videoWidth)) : tempCanvasHeight;
 
     // canvasを灰色で塗りつぶし (パディング部分)
-    tempCtx.fillStyle = PAD_STYLE;
+    tempCtx.fillStyle = PAD_COLOR;
     tempCtx.fillRect(0, 0, tempCanvasWidth, tempCanvasHeight);
 
     // 描画先のx,y座標を計算 (中央寄せ)
@@ -105,17 +103,13 @@ function preprocess(
     const targetY = (tempCanvasHeight - targetHeight) / 2;
 
     // videoをcanvasの中央に縮小描画
-    // pretty-ignore
+    // prettier-ignore
     tempCtx.drawImage(
         video,
-        0,
-        0, // 切り出し開始位置
-        videoWidth,
-        videoHeight, // 切り出しサイズ
-        targetX,
-        targetY, // 描画先の座標 (中央寄せ)
-        targetWidth,
-        targetHeight // 描画先のサイズ
+        0, 0, // 切り出し開始位置
+        videoWidth, videoHeight, // 切り出しサイズ
+        targetX, targetY, // 描画先の座標 (中央寄せ)
+        targetWidth, targetHeight // 描画先のサイズ
     );
 
     // ピクセルデータを取得
@@ -172,24 +166,30 @@ function postprocess(results: ort.InferenceSession.OnnxValueMapType, conversion:
         const width = x2 - x1;
         const height = y2 - y1;
 
-        // IDとクラス名を紐づけ
-        const className = COCO_CLASSES[classId] ?? "unknown";
-
-        return { className, score, x1, y1, width, height };
+        return {
+            classId: classId,
+            score: score,
+            x1: x1,
+            y1: y1,
+            width: width,
+            height: height
+        };
     }
 
     // canvasのサイズ (640x640固定)
     const canvasWidth = 640; // preprocess() と同じ値
     const canvasHeight = 640; // preprocess() と同じ値
 
-    // 元画像サイズに変換する関数
+    // 検出結果を元画像サイズに変換する関数
     function convertToOriginalScale(detection: Detection): Detection {
         // レターボックス分を考慮して、左上座標を元画像サイズに変換 -> 整数に丸める
         const x1 = Math.round(
-            (detection.x1 - (canvasWidth - conversion.targetWidth) / 2) * (conversion.originalWidth / conversion.targetWidth)
+            (detection.x1 - (canvasWidth - conversion.targetWidth) / 2) *
+                (conversion.originalWidth / conversion.targetWidth)
         );
         const y1 = Math.round(
-            (detection.y1 - (canvasHeight - conversion.targetHeight) / 2) * (conversion.originalHeight / conversion.targetHeight)
+            (detection.y1 - (canvasHeight - conversion.targetHeight) / 2) *
+                (conversion.originalHeight / conversion.targetHeight)
         );
 
         // 幅・高さを元画像サイズに変換 -> 整数に丸める
@@ -197,7 +197,7 @@ function postprocess(results: ort.InferenceSession.OnnxValueMapType, conversion:
         const height = Math.round(detection.height * (conversion.originalHeight / conversion.targetHeight));
 
         return {
-            className: detection.className,
+            classId: detection.classId,
             score: detection.score,
             x1: x1,
             y1: y1,
@@ -206,9 +206,9 @@ function postprocess(results: ort.InferenceSession.OnnxValueMapType, conversion:
         };
     }
 
-    // スコアが 0でなくなるまで (＝有効なボックスがなくなるまで) ループ
+    // スコアが 0.1 = 10% より大きいボックスを抽出
     let detections: Detection[] = [];
-    for (let i = 0; data[attrs * i + 4] !== 0; i++) {
+    for (let i = 0; data[attrs * i + 4] > 0.1; i++) {
         detections.push(convertToOriginalScale(getBox(i)));
     }
 
@@ -217,11 +217,6 @@ function postprocess(results: ort.InferenceSession.OnnxValueMapType, conversion:
 }
 
 // 指定されたクラス名の検出結果のみを抽出する関数
-function extractTargetClassName(
-    detections: Detection[],
-    targetClassNames: TYPE_COCO_CLASSES[]
-): Detection[] {
-    return detections.filter(detection =>
-        targetClassNames.includes(detection.className)
-    );
+function extractTargetClassName(detections: Detection[], targetClasses: number[]): Detection[] {
+    return detections.filter((detection) => targetClasses.includes(detection.classId));
 }

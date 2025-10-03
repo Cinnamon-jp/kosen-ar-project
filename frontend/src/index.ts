@@ -12,10 +12,11 @@ import drawDetections from "./functions/drawDetections.ts";
 import createOnnxSession from "./functions/createOnnxSession.ts";
 
 import type { Detection } from "./functions/inferOnnxModel.ts";
-import type { TYPE_COCO_CLASSES } from "./functions/inferOnnxModel.ts";
 
-// 描画コンテキストの取得
-const ctx = canvas.getContext("2d", { willReadFrequently: true }); // 読み取り用に最適化
+// バウンディングボックス描画コンテキストの取得
+const ctx = canvas.getContext("2d", {
+    desynchronized: true // レイテンシを抑えて連続描画に最適化
+});
 
 // モデル推論用に一時的なcanvasを作成
 const tempCanvas = document.createElement("canvas");
@@ -27,7 +28,11 @@ tempCanvas.width = tempCanvasWidth;
 tempCanvas.height = tempCanvasHeight;
 
 // 一時キャンバスの描画コンテキストを取得
-const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+const tempCtx = tempCanvas.getContext("2d", {
+    willReadFrequently: true, // 読み取り用に最適化
+    desynchronized: true, // レイテンシを抑えて連続描画に最適化
+    alpha: false // アルファ合成処理を省略して描画コストを下げる
+});
 
 // onnxruntime-web が探しに行く .wasm のベースパスを固定バージョンで指定（latestを避ける）
 ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/";
@@ -54,25 +59,26 @@ async function main(): Promise<void> {
     // canvas を前面表示
     canvas.style.zIndex = "2";
 
-    // 抽出したいクラス名 (空配列なら全クラス対象)
-    const targetClassNames: TYPE_COCO_CLASSES[] = ["person"];
+    // 抽出したいクラスID (空配列なら全クラス対象)
+    // 0~79
+    const targetClasses: number[] = [0];
 
     async function handleCapture(): Promise<void> {
         let results: Detection[] = [];
         try {
             // ONNXモデルの推論実行
-            results = await inferOnnxModel(session, video, ctx, tempCanvas, tempCtx, targetClassNames);
+            results = await inferOnnxModel(session, video, tempCanvas, tempCtx, targetClasses);
         } catch (error) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", error);
         }
 
         // バウンディングボックスの描画
-        drawDetections(results, canvas);
+        drawDetections(results, ctx, canvas.width, canvas.height);
     }
 
     while (true) {
         await handleCapture();
-        await new Promise((resolve) => setTimeout(resolve, 50)); // 100ms待機
+        await new Promise((resolve) => setTimeout(resolve, 50)); // 50ms待機
     }
 
     // 写真撮影時

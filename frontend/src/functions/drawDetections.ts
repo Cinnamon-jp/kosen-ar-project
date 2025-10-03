@@ -1,36 +1,24 @@
 import type { Detection } from "./inferOnnxModel";
 
-export default function drawDetections(detections: Detection[], canvas: HTMLCanvasElement): void {
-    const ctx = canvas.getContext("2d");
+export default function drawDetections(
+    detections: Detection[],
+    ctx: CanvasRenderingContext2D | null,
+    canvasWidth: number,
+    canvasHeight: number
+): void {
     if (!ctx) return;
     // キャンバスをクリア
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 共通設定
-    ctx.font = "16px sans-serif";
-    ctx.textBaseline = "top";
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
     detections.forEach((det: Detection) => {
-        const { x1, y1, width, height, className, score } = det;
-
-        const label = `${className} ${(score * 100).toFixed(1)}%`;
+        const { x1, y1, width, height } = det;
 
         // ボックスの色を決める (固定色でもクラスごとに変えてもOK)
-        const boxColor = "green";
+        const boxColor = "#ffffff";
 
         // バウンディングボックスを描画
         ctx.strokeStyle = boxColor;
         ctx.lineWidth = 5;
         ctx.strokeRect(x1, y1, width, height);
-
-        // ラベル用の背景を描画
-        const textWidth = ctx.measureText(label).width;
-        const textHeight = 16; // フォントサイズに合わせる
-        ctx.fillStyle = boxColor;
-        ctx.fillRect(x1, y1, textWidth + 4, textHeight + 4);
-
-        // テキストを描画
-        ctx.fillStyle = "white";
-        ctx.fillText(label, x1 + 2, y1 + 2);
     });
 }
