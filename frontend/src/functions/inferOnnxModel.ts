@@ -32,6 +32,15 @@ interface Conversion {
     targetHeight: number;
 }
 
+// パフォーマンス最適化: Float32Arrayを再利用するためのキャッシュ
+let cachedFloatArray: Float32Array | null = null;
+const TENSOR_SIZE = 640 * 640 * 3; // 640x640のRGB画像
+
+// パフォーマンス最適化: 定数を事前計算
+const INV_255 = 1 / 255; // 除算を乗算に変換するための逆数
+const PAD_COLOR = 114; // YOLO11の学習時に使われたパディングの色
+const PAD_STYLE = `rgb(${PAD_COLOR}, ${PAD_COLOR}, ${PAD_COLOR})`; // fillStyleを定数化
+
 export default async function inferOnnxModel(
     session: ort.InferenceSession,
     video: HTMLVideoElement,
@@ -88,8 +97,7 @@ function preprocess(
     const targetHeight: number = aspect >= 1 ? Math.round(videoHeight * (tempCanvasWidth / videoWidth)) : tempCanvasHeight;
 
     // canvasを灰色で塗りつぶし (パディング部分)
-    const PAD_COLOR = 114; // YOLO11の学習時に使われたパディングの色
-    tempCtx.fillStyle = `rgb(${PAD_COLOR}, ${PAD_COLOR}, ${PAD_COLOR})`;
+    tempCtx.fillStyle = PAD_STYLE;
     tempCtx.fillRect(0, 0, tempCanvasWidth, tempCanvasHeight);
 
     // 描画先のx,y座標を計算 (中央寄せ)
@@ -111,19 +119,22 @@ function preprocess(
     );
 
     // ピクセルデータを取得
-    const { data } = tempCtx.getImageData(0, 0, tempCanvasWidth, tempCanvasHeight);
+    const { data }: { data: Uint8ClampedArray } = tempCtx.getImageData(0, 0, tempCanvasWidth, tempCanvasHeight);
     const size = tempCanvasWidth * tempCanvasHeight;
 
-    const floatArray = new Float32Array(3 * size);
+    // パフォーマンス最適化: Float32Arrayを再利用
+    if (cachedFloatArray === null) {
+        cachedFloatArray = new Float32Array(TENSOR_SIZE);
+    }
+    const floatArray = cachedFloatArray;
+
+    // パフォーマンス最適化: 二重ループを単一ループに変更 & 除算を乗算に変換
     // NCHW (channel-first) で格納: [R(全部), G(全部), B(全部)]
-    for (let y = 0; y < tempCanvasHeight; y++) {
-        for (let x = 0; x < tempCanvasWidth; x++) {
-            const pixelIndex = y * tempCanvasWidth + x;
-            const dataIndex = pixelIndex * 4;
-            floatArray[pixelIndex] = data[dataIndex] / 255; // R
-            floatArray[size + pixelIndex] = data[dataIndex + 1] / 255; // G
-            floatArray[2 * size + pixelIndex] = data[dataIndex + 2] / 255; // B
-        }
+    for (let i = 0; i < size; i++) {
+        const dataIndex = i * 4; // RGBA形式なので4倍
+        floatArray[i] = data[dataIndex] * INV_255; // R (除算→乗算)
+        floatArray[size + i] = data[dataIndex + 1] * INV_255; // G (除算→乗算)
+        floatArray[2 * size + i] = data[dataIndex + 2] * INV_255; // B (除算→乗算)
     }
 
     // 拡大・縮小情報
