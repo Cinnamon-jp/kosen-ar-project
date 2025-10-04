@@ -83,6 +83,6 @@ async function main(): Promise<void> {
 }
 main().catch((err) => {
     console.error(err);
-    alert("エラーが発生しました。");
+    alert(`エラーが発生しました。\n${err.message}`);
     window.location.reload();
 });
