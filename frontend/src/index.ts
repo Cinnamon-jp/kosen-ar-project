@@ -72,7 +72,7 @@ async function main(): Promise<void> {
 
     while (true) {
         await inferModel();
-        await new Promise((resolve) => setTimeout(resolve, 50)); // 50ms待機
+        await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms待機
     }
 
     // 写真撮影時
