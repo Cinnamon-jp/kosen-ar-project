@@ -48,15 +48,19 @@ export default async function startCamera(video: HTMLVideoElement): Promise<void
             });
         } catch (errUserStream) {
             console.warn("前面カメラの取得にも失敗。解像度指定なしで再試行します。", errUserStream);
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            } catch (err) {
+                throw err; // 最終的に失敗したらエラーを投げる
+            }
         }
     }
 
-    // 4) ビデオ再生
+    // 4) ビデオに再生
     video.srcObject = stream;
     try {
         await video.play();
     } catch (err) {
-        console.error("ビデオの再生に失敗しました。", err);
+        throw err;
     }
 }

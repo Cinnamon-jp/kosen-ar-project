@@ -22,11 +22,8 @@ const ctx = canvas.getContext("2d", {
 const tempCanvas = document.createElement("canvas");
 tempCanvas.style.display = "none"; // 非表示
 // 一時canvasを640x640に設定
-const tempCanvasWidth = 640;
-const tempCanvasHeight = 640;
-tempCanvas.width = tempCanvasWidth;
-tempCanvas.height = tempCanvasHeight;
-
+tempCanvas.width = 640;
+tempCanvas.height = 640;
 // 一時キャンバスの描画コンテキストを取得
 const tempCtx = tempCanvas.getContext("2d", {
     willReadFrequently: true, // 読み取り用に最適化
@@ -39,37 +36,34 @@ ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/di
 
 // 使用するONNXモデルURLの指定
 const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n.onnx`;
-
 // ONNXセッションの作成
 onnxLogo.style.display = "block"; // ローディングアイコンを表示
 const session = await createOnnxSession(modelUrl);
 onnxLogo.style.display = "none"; // ローディングアイコンを非表示
+// 抽出したいクラスID [0, 79]の整数 (空配列なら全クラス対象)
+const targetClasses: number[] = [0];
 
 async function main(): Promise<void> {
     // カメラの起動
     try {
         await startCamera(video);
-    } catch (error) {
-        console.error("カメラの読み込み中にエラーが発生しました:", error);
+    } catch (err) {
+        console.error("カメラの読み込み中にエラーが発生しました:", err);
+        throw err;
     }
 
     // canvas を video のネイティブ解像度に合わせる
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    // canvas を前面表示
-    canvas.style.zIndex = "2";
 
-    // 抽出したいクラスID (空配列なら全クラス対象)
-    // 0~79
-    const targetClasses: number[] = [0];
-
-    async function handleCapture(): Promise<void> {
+    async function inferModel(): Promise<void> {
         let results: Detection[] = [];
         try {
             // ONNXモデルの推論実行
             results = await inferOnnxModel(session, video, tempCanvas, tempCtx, targetClasses);
-        } catch (error) {
-            console.error("ONNXモデルの推論中にエラーが発生しました:", error);
+        } catch (err) {
+            console.error("ONNXモデルの推論中にエラーが発生しました:", err);
+            throw err;
         }
 
         // バウンディングボックスの描画
@@ -77,15 +71,15 @@ async function main(): Promise<void> {
     }
 
     while (true) {
-        await handleCapture();
+        await inferModel();
         await new Promise((resolve) => setTimeout(resolve, 50)); // 50ms待機
     }
 
     // 写真撮影時
-    captureButton.addEventListener("click", handleCapture);
+    captureButton.addEventListener("click", inferModel);
     document.addEventListener("keydown", async (event) => {
         if (event.key === " ") {
-            await handleCapture();
+            await inferModel();
         }
     });
 }
