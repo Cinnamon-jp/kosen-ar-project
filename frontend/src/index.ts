@@ -14,9 +14,7 @@ import createOnnxSession from "./functions/createOnnxSession.ts";
 import type { Detection } from "./functions/inferOnnxModel.ts";
 
 // バウンディングボックス描画コンテキストの取得
-const ctx = canvas.getContext("2d", {
-    desynchronized: true // レイテンシを抑えて連続描画に最適化
-});
+const ctx = canvas.getContext("2d", {});
 
 // モデル推論用に一時的なcanvasを作成
 const tempCanvas = document.createElement("canvas");
