@@ -1,47 +1,50 @@
-import * as ort from "onnxruntime-web";
+// ライブラリのインポート
 import "onnxruntime-web/webgpu"; // WebGPUのサイドエフェクトインポート
 
+// HTML要素の取得
 const video = document.getElementById("video") as HTMLVideoElement;
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-const captureButton = document.getElementById("capture") as HTMLButtonElement;
+// const captureButton = document.getElementById("capture") as HTMLButtonElement;
 const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
+const threeCanvas = document.getElementById("three-container") as HTMLCanvasElement;
 
+// 関数のインポート
 import startCamera from "./functions/startCamera.ts";
 import inferOnnxModel from "./functions/inferOnnxModel.ts";
 import drawDetections from "./functions/drawDetections.ts";
 import createOnnxSession from "./functions/createOnnxSession.ts";
+import animate from "./functions/animate.ts";
 
+// 型のインポート
 import type { Detection } from "./functions/inferOnnxModel.ts";
 
-// バウンディングボックス描画コンテキストの取得
-const ctx = canvas.getContext("2d", {});
-
-// モデル推論用に一時的なcanvasを作成
-const tempCanvas = document.createElement("canvas");
-tempCanvas.style.display = "none"; // 非表示
-// 一時canvasを640x640に設定
-tempCanvas.width = 640;
-tempCanvas.height = 640;
-// 一時キャンバスの描画コンテキストを取得
-const tempCtx = tempCanvas.getContext("2d", {
-    willReadFrequently: true, // 読み取り用に最適化
-    desynchronized: true, // レイテンシを抑えて連続描画に最適化
-    alpha: false // アルファ合成処理を省略して描画コストを下げる
-});
-
-// onnxruntime-web が探しに行く .wasm のベースパスを固定バージョンで指定（latestを避ける）
-ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/";
-
-// 使用するONNXモデルURLの指定
-const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n.onnx`;
-// ONNXセッションの作成
-onnxLogo.style.display = "block"; // ローディングアイコンを表示
-const session = await createOnnxSession(modelUrl);
-onnxLogo.style.display = "none"; // ローディングアイコンを非表示
-// 抽出したいクラスID [0, 79]の整数 (空配列なら全クラス対象)
-const targetClasses: number[] = [0];
 
 async function main(): Promise<void> {
+    // バウンディングボックス描画コンテキストの取得
+    const ctx = canvas.getContext("2d", {});
+
+    // モデル推論用に一時的なcanvasを作成
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.style.display = "none"; // 非表示
+    // 一時canvasを640x640に設定
+    tempCanvas.width = 640;
+    tempCanvas.height = 640;
+    // 一時キャンバスの描画コンテキストを取得
+    const tempCtx = tempCanvas.getContext("2d", {
+        willReadFrequently: true, // 読み取り用に最適化
+        desynchronized: true, // レイテンシを抑えて連続描画に最適化
+        alpha: false // アルファ合成処理を省略して描画コストを下げる
+    });
+
+    // 使用するONNXモデルURLの指定
+    const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n.onnx`;
+    // ONNXセッションの作成
+    onnxLogo.style.display = "block"; // ローディングアイコンを表示
+    const session = await createOnnxSession(modelUrl);
+    onnxLogo.style.display = "none"; // ローディングアイコンを非表示
+    // 抽出したいクラスID [0, 79]の整数 (空配列なら全クラス対象)
+    const targetClasses: number[] = [0];
+
     // カメラの起動
     try {
         await startCamera(video);
@@ -50,10 +53,11 @@ async function main(): Promise<void> {
         throw err;
     }
 
-    // canvas を video のネイティブ解像度に合わせる
+    // canvas を video のネイティブ解像度に合わせる (カメラの起動後じゃないとダメ)
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
+    // 推論と描画を行う関数
     async function inferModel(): Promise<void> {
         let results: Detection[] = [];
         try {
@@ -68,18 +72,18 @@ async function main(): Promise<void> {
         drawDetections(results, ctx, canvas.width, canvas.height);
     }
 
+    try {
+        animate(threeCanvas);
+    } catch (err) {
+        console.error("3D描画中にエラーが発生しました:", err);
+        throw err;
+    }
+
+    // 100msごとに推論と描画を繰り返す
     while (true) {
         await inferModel();
         await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms待機
     }
-
-    // 写真撮影時
-    captureButton.addEventListener("click", inferModel);
-    document.addEventListener("keydown", async (event) => {
-        if (event.key === " ") {
-            await inferModel();
-        }
-    });
 }
 main().catch((err) => {
     console.error(err);

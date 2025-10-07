@@ -1,6 +1,9 @@
 import * as ort from "onnxruntime-web";
 import "onnxruntime-web/webgpu"; // WebGPU EP を登録 (side-effect import)
 
+// onnxruntime-web が探しに行く .wasm のベースパスを固定バージョンで指定（latestを避ける）
+ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.0/dist/";
+
 export default async function createOnnxSession(modelName: string): Promise<ort.InferenceSession> {
     // 最適化やメモリ設定
     // 推論セッションの共通オプション
@@ -11,9 +14,6 @@ export default async function createOnnxSession(modelName: string): Promise<ort.
         intraOpNumThreads: navigator.hardwareConcurrency || 4, // WASM用の並列実行設定
         executionMode: "parallel" // 実行モード最適化
     };
-
-    // 簡易版
-    // return ort.InferenceSession.create(modelUrl, commonOptions);
 
     // WebGPU 利用可能か判定
     const canUseWebGPU: boolean = typeof navigator !== "undefined" && "gpu" in navigator;

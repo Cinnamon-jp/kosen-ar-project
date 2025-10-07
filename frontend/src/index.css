@@ -1,3 +1,14 @@
+/* top
+
+    img: ローディングアイコン
+    button: キャプチャボタン
+    div: 3D描画用コンテナ
+    canvas: バウンディングボックス描画用キャンバス
+    video: カメラ映像
+
+    bottom
+*/
+
 html,
 body {
     width: 100%;
@@ -37,6 +48,15 @@ body {
     z-index: 1;
 }
 
+#three-container {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+}
+
 #capture {
     position: absolute;
     bottom: 2rem;
@@ -52,7 +72,7 @@ body {
         0 2px 4px -2px rgba(0, 0, 0, 0.1);
     cursor: pointer;
     transition: all 0.1s ease-in-out;
-    z-index: 2;
+    z-index: 3;
 }
 
 #capture:active {
@@ -67,7 +87,7 @@ body {
     transform: translate(-50%, -50%);
     width: 150px;
     height: 150px;
-    z-index: 3;
+    z-index: 4;
     animation: rotate-and-pulse 3.5s ease-in-out infinite;
 
     display: none; /* 初期状態では非表示 */
