@@ -65,7 +65,7 @@ async function main(): Promise<void> {
             results = await inferOnnxModel(session, video, tempCanvas, tempCtx, targetClasses);
         } catch (err) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", err);
-            // throw err; // エラーが発生してループが止まるため、コメントアウト `[WebGPU] Kernel "[GatherND] /GatherND_1" failed. Error: Unsupported data type: 7`
+            // throw err; // エラーが発生してループが止まるためコメントアウト
         }
 
         // バウンディングボックスの描画

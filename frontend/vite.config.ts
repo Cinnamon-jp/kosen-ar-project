@@ -8,7 +8,7 @@ export default defineConfig(({ command, mode }) => {
     if (command === 'serve') {
         plugins.push(
             mkcert({
-                hosts: ['localhost', '172.21.208.1', '192.168.0.24']
+                hosts: ['localhost']
             })
         );
     }
@@ -17,8 +17,8 @@ export default defineConfig(({ command, mode }) => {
         base: mode === 'production' ? '/kosen-ar-project/' : '/',
         plugins,
         server: {
-            https: {},       // mkcertの信頼済み証明書でHTTPS
-            host: '0.0.0.0', // 0.0.0.0で待受（スマホ実機からアクセス可）
+            https: {},          // mkcertの信頼済み証明書でHTTPS
+            host: 'localhost',  // ローカルホストのみ待受
             port: 5173
         },
         preview: {
