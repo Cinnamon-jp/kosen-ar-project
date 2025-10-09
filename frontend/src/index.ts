@@ -73,7 +73,7 @@ async function main(): Promise<void> {
     }
 
     try {
-        animate(threeCanvas);
+        await animate(threeCanvas);
     } catch (err) {
         console.error("3D描画中にエラーが発生しました:", err);
         throw err;
