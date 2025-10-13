@@ -3,9 +3,9 @@ import { GLTFLoader } from "three/examples/jsm/Addons.js";
 import { WebGPURenderer } from "three/webgpu";
 
 // 3Dモデルのパスとスケールを格納
-const penlightScale: [number, number, number] = [0.1, 0.1, 0.1]; // ペンライトのスケールを一括指定
+const penlightScale: [number, number, number] = [0.03, 0.03, 0.03]; // ペンライトのスケールを一括指定
 const modelResources: Record<string, [string, [number, number, number]]> = {
-    mike: [`${import.meta.env.BASE_URL}3d-models/mike.glb`, [0.3, 0.3, 0.3]],
+    mike: [`${import.meta.env.BASE_URL}3d-models/mike.glb`, [0.1, 0.1, 0.1]],
     pen_b: [`${import.meta.env.BASE_URL}3d-models/penlight_b.glb`, penlightScale],
     pen_g: [`${import.meta.env.BASE_URL}3d-models/penlight_g.glb`, penlightScale],
     pen_o: [`${import.meta.env.BASE_URL}3d-models/penlight_o.glb`, penlightScale],
@@ -14,7 +14,7 @@ const modelResources: Record<string, [string, [number, number, number]]> = {
     pen_s: [`${import.meta.env.BASE_URL}3d-models/penlight_s.glb`, penlightScale],
     pen_w: [`${import.meta.env.BASE_URL}3d-models/penlight_w.glb`, penlightScale],
     pen_y: [`${import.meta.env.BASE_URL}3d-models/penlight_y.glb`, penlightScale],
-    star: [`${import.meta.env.BASE_URL}3d-models/star.glb`, [0.07, 0.07, 0.07]],
+    star: [`${import.meta.env.BASE_URL}3d-models/star.glb`, [0.02, 0.02, 0.02]],
 };
 
 export default async function animate(canvas: HTMLCanvasElement): Promise<void> {
@@ -64,20 +64,22 @@ export default async function animate(canvas: HTMLCanvasElement): Promise<void> 
     const loader = new GLTFLoader();
 // 初期化終了
 
-    // 3Dモデルを読み込み、シーンに追加して、モデルオブジェクトを返す関数
-    function addModel(
-        modelPath: string,
+    // ランダムな3Dモデルを読み込み、シーンに追加して、モデルオブジェクトを返す関数
+    function addRandomModel(
         modelPosition: [number, number, number],
-        modelScale: [number, number, number]
     ): Promise<THREE.Group> {
+        const keysOfModelResources: string[] = Object.keys(modelResources);
+        const randomIndex: number = Math.floor(Math.random() * keysOfModelResources.length);
+        const randomModelName: string = keysOfModelResources[randomIndex];
+        
         return new Promise((resolve, reject) => {
             // モデルの読み込み
-            loader.load(modelPath, (gltf) => {
+            loader.load(modelResources[randomModelName][0], (gltf) => {
                 const model = gltf.scene;
     
                 // パラメータを分割代入
                 const [positionX, positionY, positionZ] = modelPosition;
-                const [scaleX, scaleY, scaleZ] = modelScale;
+                const [scaleX, scaleY, scaleZ] = modelResources[randomModelName][1];
     
                 // モデルの位置とサイズを調整
                 model.position.set(positionX, positionY, positionZ);
@@ -86,60 +88,43 @@ export default async function animate(canvas: HTMLCanvasElement): Promise<void> 
                 scene.add(model); // シーンに追加
                 resolve(model); // 読み込んだモデルを返す
             }, undefined, (error) => {
-                console.error(`モデルの読み込み中にエラーが発生しました: ${modelPath}`, error);
+                console.error(`モデルの読み込み中にエラーが発生しました: ${modelResources[randomModelName][0]}`, error);
                 reject(error); // エラー時にPromiseをreject
             });
         })
     }
-    // // ランダムな3Dモデルを読み込み、シーンに追加して、モデルオブジェクトを返す関数
-    // function addRandomModel(
-    //     modelPosition: [number, number, number],
-    // ): Promise<THREE.Group> {
-    //     const keysOfModelResources = Object.keys(modelResources);
-    //     const randomIndex = Math.floor(Math.random() * keysOfModelResources.length);
-    //     const randomModelName = keysOfModelResources[randomIndex];
-
-    //     return new Promise((resolve, reject) => {
-    //         // モデルの読み込み
-    //         loader.load(modelResources[randomModelName][0], (gltf) => {
-    //             const model = gltf.scene;
-    
-    //             // パラメータを分割代入
-    //             const [positionX, positionY, positionZ] = modelPosition;
-    //             const [scaleX, scaleY, scaleZ] = modelResources[randomModelName][1];
-    
-    //             // モデルの位置とサイズを調整
-    //             model.position.set(positionX, positionY, positionZ);
-    //             model.scale.set(scaleX, scaleY, scaleZ);
-    
-    //             scene.add(model); // シーンに追加
-    //             resolve(model); // 読み込んだモデルを返す
-    //         }, undefined, (error) => {
-    //             console.error(`モデルの読み込み中にエラーが発生しました: ${modelResources[randomModelName][0]}`, error);
-    //             reject(error); // エラー時にPromiseをreject
-    //         });
-    //     })
-    // }
 
     // 各モデルの変数宣言
     let model_1: THREE.Group;
     let model_2: THREE.Group;
     let model_3: THREE.Group;
     let model_4: THREE.Group;
+    let model_5: THREE.Group;
+    let model_6: THREE.Group;
+    let model_7: THREE.Group;
+    let model_8: THREE.Group;
+    let model_9: THREE.Group;
+    let model_10: THREE.Group;
     // 3Dモデルの読み込みとシーンへの追加
     try {
         // Promise.allで複数のモデルを並行して読み込む
-        [model_1, model_2, model_3, model_4] = await Promise.all([
-            addModel(modelResources.mike[0], [0, 0, -5], modelResources.mike[1]),
-            addModel(modelResources.mike[0], [0, -3, -5], modelResources.mike[1]),
-            addModel(modelResources.pen_b[0], [3, 0, -5], modelResources.pen_b[1]),
-            addModel(modelResources.star[0], [-3, 0, -5], modelResources.star[1]),
+        [model_1, model_2, model_3, model_4, model_5, model_6, model_7, model_8, model_9, model_10] = await Promise.all([
+            addRandomModel([0, 0, -5]),
+            addRandomModel([0, 1, -5]),
+            addRandomModel([0, -1, -5]),
+            addRandomModel([1, 0, -5]),
+            addRandomModel([1, 1, -5]),
+            addRandomModel([1, -1, -5]),
+            addRandomModel([-1, 0, -5]),
+            addRandomModel([-1, 1, -5]),
+            addRandomModel([-1, -1, -5]),
+            addRandomModel([0, 0, -5]),
         ]);
     } catch (err) {
         console.error("3Dモデルの読み込み中にエラーが発生しました:", err);
         throw err;
     }
-    const modelsArray = [model_1, model_2, model_3, model_4]; // アニメーションの一括指定のため配列にまとめる
+    const modelsArray = [model_1, model_2, model_3, model_4, model_5, model_6, model_7, model_8, model_9, model_10]; // アニメーションの一括指定のため配列にまとめる
 
     // アニメーションループの設定
     renderer.setAnimationLoop(() => {
