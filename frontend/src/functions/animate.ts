@@ -5,16 +5,16 @@ import { WebGPURenderer } from "three/webgpu";
 // 3Dモデルのパスとスケールを格納
 const penlightScale: [number, number, number] = [0.1, 0.1, 0.1]; // ペンライトのスケールを一括指定
 const modelResources: Record<string, [string, [number, number, number]]> = {
-    mike: ["/3d-models/mike.glb", [0.3, 0.3, 0.3]],
-    pen_b: ["/3d-models/penlight_b.glb", penlightScale],
-    pen_g: ["/3d-models/penlight_g.glb", penlightScale],
-    pen_o: ["/3d-models/penlight_o.glb", penlightScale],
-    pen_p: ["/3d-models/penlight_p.glb", penlightScale],
-    pen_r: ["/3d-models/penlight_r.glb", penlightScale],
-    pen_s: ["/3d-models/penlight_s.glb", penlightScale],
-    pen_w: ["/3d-models/penlight_w.glb", penlightScale],
-    pen_y: ["/3d-models/penlight_y.glb", penlightScale],
-    star: ["/3d-models/star.glb", [0.07, 0.07, 0.07]],
+    mike: [`${import.meta.env.BASE_URL}3d-models/mike.glb`, [0.3, 0.3, 0.3]],
+    pen_b: [`${import.meta.env.BASE_URL}3d-models/penlight_b.glb`, penlightScale],
+    pen_g: [`${import.meta.env.BASE_URL}3d-models/penlight_g.glb`, penlightScale],
+    pen_o: [`${import.meta.env.BASE_URL}3d-models/penlight_o.glb`, penlightScale],
+    pen_p: [`${import.meta.env.BASE_URL}3d-models/penlight_p.glb`, penlightScale],
+    pen_r: [`${import.meta.env.BASE_URL}3d-models/penlight_r.glb`, penlightScale],
+    pen_s: [`${import.meta.env.BASE_URL}3d-models/penlight_s.glb`, penlightScale],
+    pen_w: [`${import.meta.env.BASE_URL}3d-models/penlight_w.glb`, penlightScale],
+    pen_y: [`${import.meta.env.BASE_URL}3d-models/penlight_y.glb`, penlightScale],
+    star: [`${import.meta.env.BASE_URL}3d-models/star.glb`, [0.07, 0.07, 0.07]],
 };
 
 export default async function animate(canvas: HTMLCanvasElement): Promise<void> {
@@ -95,15 +95,18 @@ export default async function animate(canvas: HTMLCanvasElement): Promise<void> 
     // function addRandomModel(
     //     modelPosition: [number, number, number],
     // ): Promise<THREE.Group> {
-    //     const randomIndex = Math.floor(Math.random() * Object.keys(modelResources).length);
+    //     const keysOfModelResources = Object.keys(modelResources);
+    //     const randomIndex = Math.floor(Math.random() * keysOfModelResources.length);
+    //     const randomModelName = keysOfModelResources[randomIndex];
+
     //     return new Promise((resolve, reject) => {
     //         // モデルの読み込み
-    //         loader.load(modelResources[randomIndex][0], (gltf) => {
+    //         loader.load(modelResources[randomModelName][0], (gltf) => {
     //             const model = gltf.scene;
     
     //             // パラメータを分割代入
     //             const [positionX, positionY, positionZ] = modelPosition;
-    //             const [scaleX, scaleY, scaleZ] = modelResources[randomIndex][1];
+    //             const [scaleX, scaleY, scaleZ] = modelResources[randomModelName][1];
     
     //             // モデルの位置とサイズを調整
     //             model.position.set(positionX, positionY, positionZ);
@@ -112,7 +115,7 @@ export default async function animate(canvas: HTMLCanvasElement): Promise<void> 
     //             scene.add(model); // シーンに追加
     //             resolve(model); // 読み込んだモデルを返す
     //         }, undefined, (error) => {
-    //             console.error(`モデルの読み込み中にエラーが発生しました: ${modelResources[randomIndex][0]}`, error);
+    //             console.error(`モデルの読み込み中にエラーが発生しました: ${modelResources[randomModelName][0]}`, error);
     //             reject(error); // エラー時にPromiseをreject
     //         });
     //     })
