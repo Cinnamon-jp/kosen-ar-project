@@ -8,6 +8,11 @@ const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
 const threeCanvas = document.getElementById("three-container") as HTMLCanvasElement;
 
+// セッター関数
+export function getBoundingBoxCanvas(): HTMLCanvasElement {
+    return canvas;
+}
+
 // 関数のインポート
 import startCamera from "./functions/startCamera.ts";
 import inferOnnxModel from "./functions/inferOnnxModel.ts";
@@ -57,23 +62,14 @@ async function main(): Promise<void> {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    // 推論と描画を行う関数
-    async function inferModel(): Promise<void> {
-        let results: Detection[] = [];
-        try {
-            // ONNXモデルの推論実行
-            results = await inferOnnxModel(session, video, tempCanvas, tempCtx, targetClasses);
-        } catch (err) {
-            console.error("ONNXモデルの推論中にエラーが発生しました:", err);
-            // throw err; // エラーが発生してループが止まるためコメントアウト
-        }
-
-        // バウンディングボックスの描画
-        drawDetections(results, ctx, canvas.width, canvas.height);
+    let results: Detection[] = []; // 推論結果を格納する配列
+    function getDetections(): Detection[] { // 最新の推論結果を返す関数
+        return results;
     }
 
+    // 3D描画の開始
     try {
-        await animate(threeCanvas);
+        await animate(threeCanvas, getDetections);
     } catch (err) {
         console.error("3D描画中にエラーが発生しました:", err);
         throw err;
@@ -81,7 +77,16 @@ async function main(): Promise<void> {
 
     // 100msごとに推論と描画を繰り返す
     while (true) {
-        await inferModel();
+        try {
+            // ONNXモデルの推論実行
+            results = await inferOnnxModel(session, video, tempCanvas, tempCtx, targetClasses);
+            // バウンディングボックスの描画
+            drawDetections(results, ctx, canvas.width, canvas.height);
+
+        } catch (err) {
+            console.error("ONNXモデルの推論中にエラーが発生しました:", err);
+            // throw err; // エラーが発生してループが止まるためコメントアウト
+        }
         await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms待機
     }
 }
