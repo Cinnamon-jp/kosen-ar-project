@@ -244,9 +244,12 @@ export default async function animate(
                 const boundingBoxCanvasWidth = boundingBoxCanvas.width || boundingBoxCanvas.clientWidth;
                 const boundingBoxCanvasHeight = boundingBoxCanvas.height || boundingBoxCanvas.clientHeight;
 
+                // `boundingBoxCanvas`のアスペクト比から正しいfrustumWidthを計算
+                const collisionFrustumWidth = frustumHeight * (boundingBoxCanvasWidth / boundingBoxCanvasHeight);
+
                 // バウンディングボックスの位置を衝突判定ボックスの位置に変換
-                const [minX, maxY] = canvasToThreeCoords(detection.x1, detection.y1, boundingBoxCanvasWidth, boundingBoxCanvasHeight, frustumWidth, frustumHeight);
-                const [maxX, minY] = canvasToThreeCoords((detection.x1 + detection.width), (detection.y1 + detection.height), boundingBoxCanvasWidth, boundingBoxCanvasHeight, frustumWidth, frustumHeight);
+                const [minX, maxY] = canvasToThreeCoords(detection.x1, detection.y1, boundingBoxCanvasWidth, boundingBoxCanvasHeight, collisionFrustumWidth, frustumHeight);
+                const [maxX, minY] = canvasToThreeCoords((detection.x1 + detection.width), (detection.y1 + detection.height), boundingBoxCanvasWidth, boundingBoxCanvasHeight, collisionFrustumWidth, frustumHeight);
                 
                 return { minX, maxX, minY, maxY }
             });
@@ -257,6 +260,7 @@ export default async function animate(
                 const boxCenterY = (collisionBox.maxY + collisionBox.minY) / 2;
                 const boxHalfWidth = (collisionBox.maxX - collisionBox.minX) / 2;
                 const boxHalfHeight = (collisionBox.maxY - collisionBox.minY) / 2;
+                const modelHalfSize = 0.1; // モデルの大きさの半分(ざっくりとした球体として扱う)
 
                 // 衝突判定ボックスの中心からモデルの位置までのベクトル
                 const dx = model.position.x - boxCenterX;
@@ -268,27 +272,29 @@ export default async function animate(
                 const scaledDy = dy / boxHalfHeight;
 
                 // 衝突判定
-                if (
-                    (model.position.x > collisionBox.minX && model.position.x < collisionBox.maxX)
-                    && (model.position.y > collisionBox.minY && model.position.y < collisionBox.maxY)
-                ) { // 衝突判定ボックスに触れたとき
+                if ( // AABB（軸並行境界ボックス）での衝突判定
+                    model.position.x + modelHalfSize > collisionBox.minX &&
+                    model.position.x - modelHalfSize < collisionBox.maxX &&
+                    model.position.y + modelHalfSize > collisionBox.minY &&
+                    model.position.y - modelHalfSize < collisionBox.maxY
+                ) { // 衝突したとき
                     if (Math.abs(scaledDx) > Math.abs(scaledDy)) { // 左右方向から衝突
                         model.userData.moveDirection.x *= -1; // X方向の移動ベクトルを反転
 
                         // 衝突判定ボックスの内側に入り込んだ場合、外側に押し出す
                         if (model.position.x < boxCenterX) { // モデルが衝突判定ボックスの左側にいる場合
-                            model.position.x = collisionBox.minX;
+                            model.position.x = collisionBox.minX - modelHalfSize;
                         } else { // モデルが衝突判定ボックスの右側にいる場合
-                            model.position.x = collisionBox.maxX;
+                            model.position.x = collisionBox.maxX + modelHalfSize;
                         }
                     } else { // 上下方向から衝突
                         model.userData.moveDirection.y *= -1; // Y方向の移動ベクトルを反転
 
                         // 衝突判定ボックスの内側に入り込んだ場合、外側に押し出す
                         if (model.position.y < boxCenterY) { // モデルが衝突判定ボックスの下側にいる場合
-                            model.position.y = collisionBox.minY;
+                            model.position.y = collisionBox.minY - modelHalfSize;
                         } else { // モデルが衝突判定ボックスの上側にいる場合
-                            model.position.y = collisionBox.maxY;
+                            model.position.y = collisionBox.maxY + modelHalfSize;
                         }
                     }
                 }
