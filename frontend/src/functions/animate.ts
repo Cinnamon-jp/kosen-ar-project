@@ -44,7 +44,6 @@ function canvasToThreeCoords(
         return [0, 0];
     }
 
-    // 1. canvasの中心を原点(0,0)に移動し、2. ワールド座標のスケールに変換する
     // canvas座標(左上が0,0)から、ワールド座標(中央が0,0)への変換
     const worldX = (x - canvasWidth / 2) * (frustumWidth / canvasWidth);
     // Y軸はcanvas(下向きが正)とthree.js(上向きが正)で逆なので、符号を反転させる
@@ -60,15 +59,13 @@ export default async function animate(
     if (!canvas) throw new Error("3D描画用のコンテナが見つかりません");
 
 // 初期化
-    const canvasWidth = canvas.clientWidth;
-    const canvasHeight = canvas.clientHeight;
-
-    // バウンディングボックス用のcanvasを取得
-    const boundingBoxCanvas = getBoundingBoxCanvas();
+    let canvasWidth = canvas.clientWidth;
+    let canvasHeight = canvas.clientHeight;
 
     // シーンの作成
     const scene = new THREE.Scene();
 
+    
     // カメラの作成
     const camera = new THREE.PerspectiveCamera(
         75, // 視野角
@@ -93,6 +90,21 @@ export default async function animate(
     // レンダラーのサイズを設定
     renderer.setSize(canvasWidth, canvasHeight);
     renderer.setClearColor(0x000000, 0); // 背景を透明に設定
+
+    // ウィンドウリサイズ時の処理
+    function onWindowResize() {
+        // 新しいキャンバスサイズを取得
+        canvasWidth = canvas.clientWidth;
+        canvasHeight = canvas.clientHeight;
+
+        // カメラのアスペクト比を更新
+        camera.aspect = canvasWidth / canvasHeight;
+        camera.updateProjectionMatrix();
+
+        // レンダラーのサイズを更新
+        renderer.setSize(canvasWidth, canvasHeight);
+    }
+    window.addEventListener('resize', onWindowResize, false);
 
     // 環境光を追加
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -227,10 +239,15 @@ export default async function animate(
 
             // 衝突判定ボックス (Detection[]からCollosionBox[]への変換)
             const collisionBoxes: CollisionBox[] = detections.map(detection => {
-                const boundingBoxCanvasWidth = boundingBoxCanvas.clientWidth;
-                const boundingBoxCanvasHeight = boundingBoxCanvas.clientHeight;
+                // 最新のバウンディングボックスキャンバスを取得
+                const boundingBoxCanvas = getBoundingBoxCanvas();
+                const boundingBoxCanvasWidth = boundingBoxCanvas.width || boundingBoxCanvas.clientWidth;
+                const boundingBoxCanvasHeight = boundingBoxCanvas.height || boundingBoxCanvas.clientHeight;
+
+                // バウンディングボックスの位置を衝突判定ボックスの位置に変換
                 const [minX, maxY] = canvasToThreeCoords(detection.x1, detection.y1, boundingBoxCanvasWidth, boundingBoxCanvasHeight, frustumWidth, frustumHeight);
                 const [maxX, minY] = canvasToThreeCoords((detection.x1 + detection.width), (detection.y1 + detection.height), boundingBoxCanvasWidth, boundingBoxCanvasHeight, frustumWidth, frustumHeight);
+                
                 return { minX, maxX, minY, maxY }
             });
 

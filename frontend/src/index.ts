@@ -23,7 +23,6 @@ import animate from "./functions/animate.ts";
 // 型のインポート
 import type { Detection } from "./functions/inferOnnxModel.ts";
 
-
 async function main(): Promise<void> {
     // バウンディングボックス描画コンテキストの取得
     const ctx = canvas.getContext("2d", {});
@@ -63,7 +62,8 @@ async function main(): Promise<void> {
     canvas.height = video.videoHeight;
 
     let results: Detection[] = []; // 推論結果を格納する配列
-    function getDetections(): Detection[] { // 最新の推論結果を返す関数
+    // 最新の推論結果を返す関数
+    function getDetections(): Detection[] {
         return results;
     }
 
@@ -82,7 +82,6 @@ async function main(): Promise<void> {
             results = await inferOnnxModel(session, video, tempCanvas, tempCtx, targetClasses);
             // バウンディングボックスの描画
             drawDetections(results, ctx, canvas.width, canvas.height);
-
         } catch (err) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", err);
             // throw err; // エラーが発生してループが止まるためコメントアウト
