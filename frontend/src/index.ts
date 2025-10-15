@@ -1,6 +1,3 @@
-// ライブラリのインポート
-import "onnxruntime-web/webgpu"; // WebGPUのサイドエフェクトインポート
-
 // HTML要素の取得
 const video = document.getElementById("video") as HTMLVideoElement;
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;

@@ -1,13 +1,12 @@
-import * as ort from "onnxruntime-web";
-import "onnxruntime-web/webgpu"; // WebGPU EP を登録 (side-effect import)
+import type * as OrtModule from "onnxruntime-web";
+import { getOrtRuntime } from "./getOrtRuntime.ts";
 
-// onnxruntime-web が探しに行く .wasm のベースパスを固定バージョンで指定（latestを避ける）
-ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.0/dist/";
+export default async function createOnnxSession(modelName: string): Promise<OrtModule.InferenceSession> {
+    const ort = getOrtRuntime();
 
-export default async function createOnnxSession(modelName: string): Promise<ort.InferenceSession> {
     // 最適化やメモリ設定
     // 推論セッションの共通オプション
-    const commonOptions: ort.InferenceSession.SessionOptions = {
+    const commonOptions: OrtModule.InferenceSession.SessionOptions = {
         graphOptimizationLevel: "all", // 最適化
         enableCpuMemArena: true, // CPUメモリアリーナ
         enableMemPattern: true, // メモリパターン

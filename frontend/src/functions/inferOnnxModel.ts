@@ -1,4 +1,7 @@
-import * as ort from "onnxruntime-web";
+import type * as OrtModule from "onnxruntime-web";
+import { getOrtRuntime } from "./getOrtRuntime.ts";
+
+const ort = getOrtRuntime();
 
 // prettier-ignore
 // const COCO_CLASSES = [
@@ -41,7 +44,7 @@ const INV_255 = 1 / 255; // 除算を乗算に変換するための逆数
 const PAD_COLOR = "rgb(114, 114, 114)"; // YOLO11の学習時に使われたパディングの色
 
 export default async function inferOnnxModel(
-    session: ort.InferenceSession,
+    session: OrtModule.InferenceSession,
     video: HTMLVideoElement,
     tempCanvas: HTMLCanvasElement,
     tempCtx: CanvasRenderingContext2D | null,
@@ -75,7 +78,7 @@ function preprocess(
     tempCanvasWidth: number,
     tempCanvasHeight: number,
     tempCtx: CanvasRenderingContext2D
-): [ort.Tensor, Conversion] {
+): [OrtModule.Tensor, Conversion] {
     // videoのサイズを設定
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
@@ -147,8 +150,8 @@ function preprocess(
 }
 
 // 画像後処理: モデルの出力を受け取り、Detectionの配列を返す
-function postprocess(results: ort.InferenceSession.OnnxValueMapType, conversion: Conversion): Detection[] {
-    const tensor = results["output0"] as ort.Tensor;
+function postprocess(results: OrtModule.InferenceSession.OnnxValueMapType, conversion: Conversion): Detection[] {
+    const tensor = results["output0"] as OrtModule.Tensor;
     const attrs = tensor.dims[2]; // 例: [1, 8400, 84], [1, 300, 6]
     const data = tensor.data as Float32Array; // 実際のデータが格納された1次元配列
 
