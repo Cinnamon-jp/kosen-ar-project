@@ -30,28 +30,6 @@ export interface CollisionBox {
     maxY: number;
 }
 
-// canvas座標をthree.jsのワールド座標に変換する関数
-function canvasToThreeCoords(
-    x: number,
-    y: number,
-    canvasWidth: number,
-    canvasHeight: number,
-    frustumWidth: number,
-    frustumHeight: number
-): [number, number] {
-    if (canvasWidth === 0 || canvasHeight === 0) {
-        console.warn("canvasToThreeCoords: キャンバスの幅または高さが0のため、原点を返します");
-        return [0, 0];
-    }
-
-    // canvas座標(左上が0,0)から、ワールド座標(中央が0,0)への変換
-    const worldX = (x - canvasWidth / 2) * (frustumWidth / canvasWidth);
-    // Y軸はcanvas(下向きが正)とthree.js(上向きが正)で逆なので、符号を反転させる
-    const worldY = -(y - canvasHeight / 2) * (frustumHeight / canvasHeight);
-
-    return [worldX, worldY];
-}
-
 export default async function animate(
     canvas: HTMLCanvasElement,
     getDetections: () => Detection[] // detectionsを返す関数を受け取る
@@ -198,6 +176,53 @@ export default async function animate(
 
     // アニメーションループの設定
     renderer.setAnimationLoop(() => {
+        // キャッシュ化してフレーム内の重複計算を避ける
+        const detections: Detection[] = getDetections();
+        const boundingBoxCanvas = getBoundingBoxCanvas();
+        const boundingBoxCanvasWidth = boundingBoxCanvas
+            ? boundingBoxCanvas.width || boundingBoxCanvas.clientWidth
+            : 0;
+        const boundingBoxCanvasHeight = boundingBoxCanvas
+            ? boundingBoxCanvas.height || boundingBoxCanvas.clientHeight
+            : 0;
+        const hasValidBoundingBoxCanvas =
+            boundingBoxCanvasWidth > 0 && boundingBoxCanvasHeight > 0;
+        const normalizedDetections: Array<{
+            minXNorm: number;
+            maxXNorm: number;
+            topYNorm: number;
+            bottomYNorm: number;
+        }> = hasValidBoundingBoxCanvas
+            ? detections.map((detection) => ({
+                minXNorm: detection.x1 / boundingBoxCanvasWidth,
+                maxXNorm: (detection.x1 + detection.width) / boundingBoxCanvasWidth,
+                topYNorm: detection.y1 / boundingBoxCanvasHeight,
+                bottomYNorm: (detection.y1 + detection.height) / boundingBoxCanvasHeight,
+            }))
+            : [];
+        const detectionAspect = hasValidBoundingBoxCanvas
+            ? boundingBoxCanvasWidth / boundingBoxCanvasHeight
+            : camera.aspect;
+
+        // 全モデルで共通の計算をループ外に移動
+        // モデルのZ位置は不変なので、最初のモデルを使って代表的な値を計算
+        const distance = modelsArray.length > 0 ? Math.abs(modelsArray[0].position.z - camera.position.z) : 0;
+        const frustumHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * distance;
+        const frustumWidth = frustumHeight * camera.aspect;
+        const visibleHalfWidth = frustumWidth / 2;
+        const visibleHalfHeight = frustumHeight / 2;
+
+        const collisionFrustumWidth = frustumHeight * detectionAspect;
+        const collisionBoxes: CollisionBox[] = hasValidBoundingBoxCanvas
+            ? normalizedDetections.map((normalizedDetection) => {
+                const minX = (normalizedDetection.minXNorm - 0.5) * collisionFrustumWidth;
+                const maxX = (normalizedDetection.maxXNorm - 0.5) * collisionFrustumWidth;
+                const maxY = (0.5 - normalizedDetection.topYNorm) * frustumHeight;
+                const minY = (0.5 - normalizedDetection.bottomYNorm) * frustumHeight;
+                return { minX, maxX, minY, maxY };
+            })
+            : [];
+
         modelsArray.forEach(model => {
             // 初回のみ回転軸をランダムに生成して userData に保存
             if (!model.userData.axis) {
@@ -224,35 +249,10 @@ export default async function animate(
             model.position.add(model.userData.moveDirection);
 
             // 画面外へ出たモデルを反対側へラップさせる
-            const distance = Math.abs(model.position.z - camera.position.z); // カメラからモデルまでの距離
-            const frustumHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * distance; // モデルの位置における鉛直方向の長さ
-            const frustumWidth = frustumHeight * camera.aspect; // モデルの位置における水平方向の長さ
-            const visibleHalfWidth = frustumWidth / 2;
-            const visibleHalfHeight = frustumHeight / 2;
-            // 画面外へ出たモデルを反対側へラップさせる
             if (model.position.x > visibleHalfWidth) model.position.x = -visibleHalfWidth;
             if (model.position.x < -visibleHalfWidth) model.position.x = visibleHalfWidth;
             if (model.position.y > visibleHalfHeight) model.position.y = -visibleHalfHeight;
             if (model.position.y < -visibleHalfHeight) model.position.y = visibleHalfHeight;
-
-            const detections: Detection[] = getDetections();
-
-            // 衝突判定ボックス (Detection[]からCollosionBox[]への変換)
-            const collisionBoxes: CollisionBox[] = detections.map(detection => {
-                // 最新のバウンディングボックスキャンバスを取得
-                const boundingBoxCanvas = getBoundingBoxCanvas();
-                const boundingBoxCanvasWidth = boundingBoxCanvas.width || boundingBoxCanvas.clientWidth;
-                const boundingBoxCanvasHeight = boundingBoxCanvas.height || boundingBoxCanvas.clientHeight;
-
-                // `boundingBoxCanvas`のアスペクト比から正しいfrustumWidthを計算
-                const collisionFrustumWidth = frustumHeight * (boundingBoxCanvasWidth / boundingBoxCanvasHeight);
-
-                // バウンディングボックスの位置を衝突判定ボックスの位置に変換
-                const [minX, maxY] = canvasToThreeCoords(detection.x1, detection.y1, boundingBoxCanvasWidth, boundingBoxCanvasHeight, collisionFrustumWidth, frustumHeight);
-                const [maxX, minY] = canvasToThreeCoords((detection.x1 + detection.width), (detection.y1 + detection.height), boundingBoxCanvasWidth, boundingBoxCanvasHeight, collisionFrustumWidth, frustumHeight);
-                
-                return { minX, maxX, minY, maxY }
-            });
 
             collisionBoxes.forEach(collisionBox => {
                 // 各衝突判定ボックスの各パラメータを計算
