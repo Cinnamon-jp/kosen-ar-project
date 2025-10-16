@@ -1,5 +1,5 @@
 import type * as OrtModule from "onnxruntime-web";
-import { getOrtRuntime } from "./getOrtRuntime.ts";
+import { getOrtRuntime } from "./createOnnxSession.ts";
 
 const ort = getOrtRuntime();
 

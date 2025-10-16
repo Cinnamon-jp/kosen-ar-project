@@ -142,21 +142,11 @@ export default async function animate(
         })
     }
 
-    // 各モデルの変数宣言
-    let model_1: THREE.Group;
-    let model_2: THREE.Group;
-    let model_3: THREE.Group;
-    let model_4: THREE.Group;
-    let model_5: THREE.Group;
-    let model_6: THREE.Group;
-    let model_7: THREE.Group;
-    let model_8: THREE.Group;
-    let model_9: THREE.Group;
-    let model_10: THREE.Group;
     // 3Dモデルの読み込みとシーンへの追加
+    let modelsArray: THREE.Group[];
     try {
         // Promise.allで複数のモデルを並行して読み込む
-        [model_1, model_2, model_3, model_4, model_5, model_6, model_7, model_8, model_9, model_10] = await Promise.all([
+        modelsArray = await Promise.all([
             addRandomModel([0, 0, -5], "mike"),
             addRandomModel([0, 1, -5], "mike"),
             addRandomModel([0, -1, -5], "star"),
@@ -172,7 +162,6 @@ export default async function animate(
         console.error("3Dモデルの読み込み中にエラーが発生しました:", err);
         throw err;
     }
-    const modelsArray = [model_1, model_2, model_3, model_4, model_5, model_6, model_7, model_8, model_9, model_10]; // アニメーションの一括指定のため配列にまとめる
 
     // アニメーションループの設定
     renderer.setAnimationLoop(() => {
