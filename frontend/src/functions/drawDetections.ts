@@ -10,15 +10,13 @@ export default function drawDetections(
     // キャンバスをクリア
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
+    // スタイルを設定
+    const boxColor = "#ffffff";
+    ctx.strokeStyle = boxColor;
+    ctx.lineWidth = 5;
+
     detections.forEach((det: Detection) => {
         const { x1, y1, width, height } = det;
-
-        // ボックスの色を決める (固定色でもクラスごとに変えてもOK)
-        const boxColor = "#ffffff";
-
-        // バウンディングボックスを描画
-        ctx.strokeStyle = boxColor;
-        ctx.lineWidth = 5;
         ctx.strokeRect(x1, y1, width, height);
     });
 }
