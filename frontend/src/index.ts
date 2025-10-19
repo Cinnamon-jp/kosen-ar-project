@@ -1,7 +1,7 @@
 // HTML要素の取得
 const video = document.getElementById("video") as HTMLVideoElement;
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-const captureButton = document.getElementById("capture-button") as HTMLButtonElement;
+// const captureButton = document.getElementById("capture") as HTMLButtonElement;
 const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
 const threeCanvas = document.getElementById("three-container") as HTMLCanvasElement;
 
@@ -16,7 +16,6 @@ import inferOnnxModel from "./functions/inferOnnxModel.ts";
 import drawDetections from "./functions/drawDetections.ts";
 import createOnnxSession from "./functions/createOnnxSession.ts";
 import animate from "./functions/animate.ts";
-import takePicture from "./functions/takePicture.ts";
 
 // 型のインポート
 import type { Detection } from "./functions/inferOnnxModel.ts";
@@ -72,15 +71,6 @@ async function main(): Promise<void> {
         console.error("3D描画中にエラーが発生しました:", err);
         throw err;
     }
-
-    captureButton.addEventListener("click", () => {
-        try {
-            takePicture(video, threeCanvas);
-        } catch (err: any) {
-            console.error("写真の撮影中にエラーが発生しました:", err);
-            throw err;
-        }
-    });
 
     // 100msごとに推論と描画を繰り返す
     while (true) {
