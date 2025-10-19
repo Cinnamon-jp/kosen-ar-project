@@ -12,7 +12,6 @@
         "imports": {
           "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js",
           "three/examples/jsm/Addons.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/Addons.js",
-          "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.webgpu.min.js"
         }
       }
     </script>
@@ -25,7 +24,7 @@
       <video id="video" autoplay muted playsinline></video> <!-- カメラ映像 -->
       <canvas id="canvas"></canvas> <!-- バウンディングボックス描画用キャンバス -->
       <canvas id="three-container"></canvas> <!-- Three.jsの3D描画用キャンバス -->
-      <!-- <button id="capture"></button> -->
+      <button id="capture-button"></button>
       <img id="onnx-logo" src="/assets/onnx-logo.svg" alt="ONNX Logo"><!-- ローディングアイコン --->
     </div>
     
