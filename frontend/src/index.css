@@ -57,7 +57,7 @@ body {
     z-index: 2;
 }
 
-#capture {
+#capture-button {
     position: absolute;
     bottom: 2rem;
     left: 50%;
@@ -71,13 +71,16 @@ body {
         0 4px 6px -1px rgba(0, 0, 0, 0.1),
         0 2px 4px -2px rgba(0, 0, 0, 0.1);
     cursor: pointer;
-    transition: all 0.1s ease-in-out;
+    /* transitionを調整して、より反応を良く見せる */
+    transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
     z-index: 3;
 }
 
-#capture:active {
-    transform: translateX(-50%) scale(0.95);
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+#capture-button:active {
+    /* クリック時にボタンをより小さくし、沈んだように見せる */
+    transform: translateX(-50%) scale(0.9);
+    /* 影を内側に落とし、立体感を出す */
+    box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.25);
 }
 
 #onnx-logo {
