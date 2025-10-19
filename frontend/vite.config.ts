@@ -1,6 +1,12 @@
 import { defineConfig, type PluginOption } from 'vite';
 import mkcert from 'vite-plugin-mkcert';
 
+const CDN_EXTERNALS = [
+    'three',
+    'three/examples/jsm/Addons.js',
+    'three/webgpu'
+] as const;
+
 // 本番（GitHub Pages）ではサブパス /kosen-ar-project/ 配下に配置されるため base を切替
 export default defineConfig(({ command, mode }) => {
     const plugins: PluginOption[] = [];
@@ -23,6 +29,14 @@ export default defineConfig(({ command, mode }) => {
         },
         preview: {
             https: {}
+        },
+        optimizeDeps: {
+            exclude: [...CDN_EXTERNALS]
+        },
+        build: {
+            rollupOptions: {
+                external: [...CDN_EXTERNALS]
+            }
         }
     };
 });

@@ -1,6 +1,3 @@
-// ライブラリのインポート
-import "onnxruntime-web/webgpu"; // WebGPUのサイドエフェクトインポート
-
 // HTML要素の取得
 const video = document.getElementById("video") as HTMLVideoElement;
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -41,7 +38,7 @@ async function main(): Promise<void> {
     });
 
     // 使用するONNXモデルURLの指定
-    const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n.onnx`;
+    const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n_half.onnx`;
     // ONNXセッションの作成
     onnxLogo.style.display = "block"; // ローディングアイコンを表示
     const session = await createOnnxSession(modelUrl);

@@ -9,7 +9,7 @@ model = YOLO(baseModel + ".pt")
 model.export(
     format="onnx",
     imgsz=640,
-    half=False, # FP16量子化
+    half=True, # FP16量子化
     dynamic=False,
     simplify=True, # ONNXslimによるモデル簡略化
     nms=True,
