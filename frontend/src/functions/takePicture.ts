@@ -18,12 +18,15 @@ export default function takePicture(
     // 画像データをBlob形式で取得
     tempCanvas.toBlob((blob) => {
         if (!blob) throw new Error("画像データの取得に失敗しました");
-        
+
         // aタグを作成してダウンロード
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "picture.jpg";
+        const now = new Date();
+        const pad = (n: number) => n.toString().padStart(2, "0");
+        const filename = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.jpg`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
