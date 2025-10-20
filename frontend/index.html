@@ -7,14 +7,6 @@
     <!-- CDNインポート -->
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.0/dist/ort.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.0/dist/ort.webgpu.min.js" crossorigin="anonymous"></script>
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js",
-          "three/examples/jsm/Addons.js": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/Addons.js"
-        }
-      }
-    </script>
     <!-- CDNインポート -->
     <title>kosen-ar-project</title>
   </head>
@@ -23,8 +15,7 @@
     <div id="container">
       <video id="video" autoplay muted playsinline></video> <!-- カメラ映像 -->
       <canvas id="canvas"></canvas> <!-- バウンディングボックス描画用キャンバス -->
-      <canvas id="three-container"></canvas> <!-- Three.jsの3D描画用キャンバス -->
-      <button id="capture-button"></button>
+      <button id="capture-button"></button><!-- キャプチャーボタン -->
       <img id="onnx-logo" src="/assets/onnx-logo.svg" alt="ONNX Logo"><!-- ローディングアイコン --->
     </div>
     

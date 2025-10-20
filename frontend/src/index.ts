@@ -3,7 +3,6 @@ const video = document.getElementById("video") as HTMLVideoElement;
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const captureButton = document.getElementById("capture-button") as HTMLButtonElement;
 const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
-const threeCanvas = document.getElementById("three-container") as HTMLCanvasElement;
 
 // セッター関数
 export function getBoundingBoxCanvas(): HTMLCanvasElement {
@@ -12,10 +11,9 @@ export function getBoundingBoxCanvas(): HTMLCanvasElement {
 
 // 関数のインポート
 import startCamera from "./functions/startCamera.ts";
+import createOnnxSession from "./functions/createOnnxSession.ts";
 import inferOnnxModel from "./functions/inferOnnxModel.ts";
 import drawDetections from "./functions/drawDetections.ts";
-import createOnnxSession from "./functions/createOnnxSession.ts";
-import animate from "./functions/animate.ts";
 import takePicture from "./functions/takePicture.ts";
 
 // 型のインポート
@@ -61,21 +59,13 @@ async function main(): Promise<void> {
 
     let results: Detection[] = []; // 推論結果を格納する配列
     // 最新の推論結果を返す関数
-    function getDetections(): Detection[] {
-        return results;
-    }
-
-    // 3D描画の開始
-    try {
-        await animate(threeCanvas, getDetections);
-    } catch (err) {
-        console.error("3D描画中にエラーが発生しました:", err);
-        throw err;
-    }
+    // function getDetections(): Detection[] {
+    //     return results;
+    // }
 
     captureButton.addEventListener("click", () => {
         try {
-            takePicture(video, threeCanvas);
+            takePicture(video);
         } catch (err) {
             console.error("写真撮影中にエラーが発生しました:", err);
             throw err;
@@ -93,7 +83,7 @@ async function main(): Promise<void> {
             console.error("ONNXモデルの推論中にエラーが発生しました:", err);
             // throw err; // エラーが発生してループが止まるためコメントアウト
         }
-        await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms待機
+        await new Promise((resolve) => setTimeout(resolve, 50)); // 100ms待機
     }
 }
 main().catch((err) => {
