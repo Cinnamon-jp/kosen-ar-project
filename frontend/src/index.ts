@@ -1,6 +1,6 @@
 // HTML要素の取得
 const video = document.getElementById("video") as HTMLVideoElement;
-// const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const imgContainer = document.getElementById("img-container") as HTMLDivElement;
 const captureButton = document.getElementById("capture-button") as HTMLButtonElement;
 const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
@@ -9,7 +9,7 @@ const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
 import startCamera from "./functions/startCamera.ts";
 // 推論を実行する Web Worker
 const inferWorker = new Worker(new URL("./worker/inferWorker.ts", import.meta.url), { type: "module" });
-// import drawDetections from "./functions/drawDetections.ts";
+import drawDetections from "./functions/drawDetections.ts";
 import animate from "./functions/animate.ts";
 import takePicture from "./functions/takePicture.ts";
 
@@ -17,7 +17,7 @@ import takePicture from "./functions/takePicture.ts";
 import type { Detection } from "./functions/inferOnnxModel.ts";
 
 async function main(): Promise<void> {
-    // const ctx = canvas.getContext("2d", {});
+    const ctx = canvas.getContext("2d", {});
 
     // ONNXモデル用 Web Worker を初期化
     const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n_half.onnx`;
@@ -41,9 +41,9 @@ async function main(): Promise<void> {
         throw err;
     }
 
-    // // canvas を video のネイティブ解像度に合わせる (カメラの起動後じゃないとダメ)
-    // canvas.width = video.videoWidth;
-    // canvas.height = video.videoHeight;
+    // canvas を video のネイティブ解像度に合わせる (カメラの起動後じゃないとダメ)
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
 
     let results: Detection[] = []; // 推論結果を格納する配列
     // 最新の推論結果を返す関数
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
                 };
                 inferWorker.postMessage({ type: "infer", bitmap, targetClasses }, [bitmap]);
             });
-            // drawDetections(results, ctx, canvas.width, canvas.height);
+            drawDetections(results, ctx, canvas.width, canvas.height);
         } catch (err) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", err);
         }

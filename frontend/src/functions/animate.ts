@@ -153,8 +153,8 @@ export default function animate(
     let logoPos = { x: getRandomNumber(0, imgContainer.offsetWidth), y: getRandomNumber(0, imgContainer.offsetHeight) };
     let datePos = { x: getRandomNumber(0, imgContainer.offsetWidth), y: getRandomNumber(0, imgContainer.offsetHeight) };
 
-    const logoImg = addPictureToHtml(pictureUrls[0], imgContainer, 300, logoPos.x, logoPos.y);
-    const dateImg = addPictureToHtml(pictureUrls[1], imgContainer, 100, datePos.x, datePos.y);
+    const logoImg = addPictureToHtml(pictureUrls[0], imgContainer, 200, logoPos.x, logoPos.y);
+    const dateImg = addPictureToHtml(pictureUrls[1], imgContainer, 70, datePos.x, datePos.y);
 
     // ランダムにベクトルを生成
     let logoVector: [number, number] = [randomSign(getRandomNumber(3, 6)), randomSign(getRandomNumber(3, 6))];
