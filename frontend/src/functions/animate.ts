@@ -32,8 +32,7 @@ function addPictureToHtml(
     const img = new Image()
     img.src = pictureUrl
     img.style.position = 'absolute'
-    img.style.left = `${positionX}px`
-    img.style.top = `${positionY}px`
+    img.style.transform = `translate(${positionX}px, ${positionY}px)`
 
     // 画像がロードされたらアスペクト比に応じて高さを設定
     img.onload = () => {
@@ -46,50 +45,43 @@ function addPictureToHtml(
     return img
 }
 
-// 画像を任意の方向に平行移動させる関数
-function moveImage(
-    img: HTMLImageElement, // 動かす画像要素
-    imgContainer: HTMLDivElement, // 画像を囲むコンテナ要素
+// 画像の移動ロジックを計算する純粋な関数
+function calculateImageMovement(
+    currentX: number,
+    currentY: number,
     vector: [number, number],
-    collisionBoxes: CollisionBox[], // 衝突判定ボックス
-): [number, number] {
-    // 現在の画像の座標を取得
-    let x = img.offsetLeft;
-    let y = img.offsetTop;
-
-    // コンテナのサイズを取得
-    const containerWidth = imgContainer.offsetWidth;
-    const containerHeight = imgContainer.offsetHeight;
-
-    // 画像のサイズを取得
-    const imageWidth = img.width;
-    const imageHeight = img.height;
-
-    // 画像の移動（ベクトルの大きさで移動量を調整）
+    imageWidth: number,
+    imageHeight: number,
+    containerWidth: number,
+    containerHeight: number,
+    collisionBoxes: CollisionBox[],
+): { newX: number; newY: number; newVector: [number, number] } {
+    let x = currentX;
+    let y = currentY;
     let dx = vector[0];
     let dy = vector[1];
+
     x += dx;
     y += dy;
 
-    // 壁との衝突判定と跳ね返り
+    // 壁との衝突判定
     if (x < 0) {
-        x = 0; // 壁にめり込まないように位置を補正
+        x = 0;
         dx = -dx;
     } else if (x + imageWidth > containerWidth) {
-        x = containerWidth - imageWidth; // 壁にめり込まないように位置を補正
+        x = containerWidth - imageWidth;
         dx = -dx;
     }
     if (y < 0) {
-        y = 0; // 壁にめり込まないように位置を補正
+        y = 0;
         dy = -dy;
     } else if (y + imageHeight > containerHeight) {
-        y = containerHeight - imageHeight; // 壁にめり込まないように位置を補正
+        y = containerHeight - imageHeight;
         dy = -dy;
     }
 
-    // 衝突判定ボックスとの衝突判定と跳ね返り
+    // 衝突判定ボックスとの衝突判定
     for (const box of collisionBoxes) {
-        // 衝突判定
         if (
             x < box.x + box.width &&
             x + imageWidth > box.x &&
@@ -133,40 +125,101 @@ function moveImage(
         }
     }
 
-
-    // 画像の位置を更新
-    img.style.left = `${x}px`;
-    img.style.top = `${y}px`;
-
-    return [dx, dy];
+    return { newX: x, newY: y, newVector: [dx, dy] };
 }
+
 
 // メインの関数
 export default function animate(
     imgContainer: HTMLDivElement,
     getDetections: () => Detection[],
 ): void {
-    // 使用する画像を格納
-    const logoImg = addPictureToHtml(pictureUrls[0], imgContainer, 100, 50, 50);
-    const dateImg = addPictureToHtml(pictureUrls[1], imgContainer, 100, 150, 150);
+    // 初期位置
+    let logoPos = { x: 50, y: 50 };
+    let datePos = { x: 150, y: 150 };
 
-    // 移動ベクトル (ベクトルの大きさが移動量になる)
+    const logoImg = addPictureToHtml(pictureUrls[0], imgContainer, 100, logoPos.x, logoPos.y);
+    const dateImg = addPictureToHtml(pictureUrls[1], imgContainer, 100, datePos.x, datePos.y);
+
     let logoVector: [number, number] = [5, 5];
     let dateVector: [number, number] = [6, 3];
 
-    // アニメーションループ
+    // --- ▼ パフォーマンス改善のための変更点 ▼ ---
+
+    let containerWidth = imgContainer.offsetWidth;
+    let containerHeight = imgContainer.offsetHeight;
+    let logoWidth = 0;
+    let logoHeight = 0;
+    let dateWidth = 0;
+    let dateHeight = 0;
+
+    logoImg.onload = () => {
+        const ratio = logoImg.naturalWidth / logoImg.naturalHeight;
+        logoImg.width = 100;
+        logoImg.height = 100 / ratio;
+        logoWidth = logoImg.width;
+        logoHeight = logoImg.height;
+    };
+
+    dateImg.onload = () => {
+        const ratio = dateImg.naturalWidth / dateImg.naturalHeight;
+        dateImg.width = 100;
+        dateImg.height = 100 / ratio;
+        dateWidth = dateImg.width;
+        dateHeight = dateImg.height;
+    };
+
+    // ウィンドウリサイズ時にコンテナサイズを更新
+    window.addEventListener('resize', () => {
+        containerWidth = imgContainer.offsetWidth;
+        containerHeight = imgContainer.offsetHeight;
+    });
+
+    // --- ▲ パフォーマンス改善のための変更点 ▲ ---
+
     function tick() {
         const detections = getDetections();
 
+        // ▼ 毎フレームのDOMアクセスを削除し、キャッシュした変数を使用
         const collisionBoxes: CollisionBox[] = detections.map(d => ({
-            x: d.x1 * imgContainer.offsetWidth,
-            y: d.y1 * imgContainer.offsetHeight,
-            width: (d.x2 - d.x1) * imgContainer.offsetWidth,
-            height: (d.y2 - d.y1) * imgContainer.offsetHeight,
+            x: d.x1 * containerWidth,
+            y: d.y1 * containerHeight,
+            width: (d.x2 - d.x1) * containerWidth,
+            height: (d.y2 - d.y1) * containerHeight,
         }));
 
-        logoVector = moveImage(logoImg, imgContainer, logoVector, collisionBoxes);
-        dateVector = moveImage(dateImg, imgContainer, dateVector, collisionBoxes);
+        // logoImg の移動計算
+        const logoResult = calculateImageMovement(
+            logoPos.x,
+            logoPos.y,
+            logoVector,
+            logoWidth, // ▼ キャッシュした値を使用
+            logoHeight, // ▼ キャッシュした値を使用
+            containerWidth,
+            containerHeight,
+            collisionBoxes
+        );
+        logoPos = { x: logoResult.newX, y: logoResult.newY };
+        logoVector = logoResult.newVector;
+
+        // dateImg の移動計算
+        const dateResult = calculateImageMovement(
+            datePos.x,
+            datePos.y,
+            dateVector,
+            dateWidth, // ▼ キャッシュした値を使用
+            dateHeight, // ▼ キャッシュした値を使用
+            containerWidth,
+            containerHeight,
+            collisionBoxes
+        );
+        datePos = { x: dateResult.newX, y: dateResult.newY };
+        dateVector = dateResult.newVector;
+
+        // DOM更新を transform で一括で行う
+        logoImg.style.transform = `translate(${logoPos.x}px, ${logoPos.y}px)`;
+        dateImg.style.transform = `translate(${datePos.x}px, ${datePos.y}px)`;
+
         requestAnimationFrame(tick);
     }
     tick();
