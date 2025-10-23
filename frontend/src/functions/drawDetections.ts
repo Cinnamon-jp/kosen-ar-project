@@ -21,7 +21,7 @@ export default function drawDetections(
             canvasWidth * x1,
             canvasHeight * y1,
             canvasWidth * (x2 - x1),
-            canvasHeight * (y2 - y1),
+            canvasHeight * (y2 - y1)
         );
     });
 }

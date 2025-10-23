@@ -63,7 +63,9 @@ body {
         0 2px 4px -2px rgba(0, 0, 0, 0.1);
     cursor: pointer;
     /* transitionを調整して、より反応を良く見せる */
-    transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+    transition:
+        transform 0.1s ease-out,
+        box-shadow 0.1s ease-out;
     z-index: 3;
 }
 

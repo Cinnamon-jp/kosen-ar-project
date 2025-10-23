@@ -1,6 +1,6 @@
 export default function takePicture(
     video: HTMLVideoElement,
-    imgContainer: HTMLDivElement,
+    imgContainer: HTMLDivElement
 ): void {
     // 一時的なキャンバスを作成
     const tempCanvas = document.createElement("canvas");
@@ -19,8 +19,21 @@ export default function takePicture(
 
     // 各画像を描画
     for (const img of images) {
-        const x = parseInt(img.style.left, 10);
-        const y = parseInt(img.style.top, 10);
+        // img の transform から位置を取得
+        const computedStyle = getComputedStyle(img);
+        const transform = computedStyle.transform;
+        let x = 0;
+        let y = 0;
+        if (transform && transform !== 'none') {
+            const match = transform.match(/matrix\(([^)]+)\)/);
+            if (match) {
+                const values = match[1].split(',').map(val => parseFloat(val.trim()));
+                if (values.length === 6) {
+                    x = values[4];
+                    y = values[5];
+                }
+            }
+        }
         const width = img.width;
         const height = img.height;
 

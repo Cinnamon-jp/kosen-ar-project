@@ -75,9 +75,8 @@ export default async function createOnnxSession(modelName: string): Promise<OrtT
         }
 
         try {
-            const executionProviders = provider.name === 'wasm'
-                ? ['wasm']
-                : [{ name: provider.name, ...provider.options }, 'wasm'];
+            const executionProviders =
+                provider.name === "wasm" ? ["wasm"] : [{ name: provider.name, ...provider.options }, "wasm"];
 
             const session = await ort.InferenceSession.create(modelName, {
                 ...commonOptions,
@@ -86,7 +85,10 @@ export default async function createOnnxSession(modelName: string): Promise<OrtT
             console.log(`ONNX Runtime: ${provider.name.toUpperCase()} EP を使用しています。`);
             return session;
         } catch (error) {
-            console.warn(`ONNX Runtime: ${provider.name.toUpperCase()} セッションの作成に失敗しました。次にフォールバックします。`, error);
+            console.warn(
+                `ONNX Runtime: ${provider.name.toUpperCase()} セッションの作成に失敗しました。次にフォールバックします。`,
+                error
+            );
         }
     }
 

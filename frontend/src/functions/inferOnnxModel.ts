@@ -155,11 +155,7 @@ function preprocess(
 }
 
 // モジュールレベル: i番目のボックスを取得する
-function getBox(
-    data: Float32Array,
-    attrs: number,
-    i: number
-): Detection {
+function getBox(data: Float32Array, attrs: number, i: number): Detection {
     const base = attrs * i;
     const x1 = data[base + 0];
     const y1 = data[base + 1];
@@ -189,7 +185,7 @@ function convertToOriginalScale(
         x1: x1,
         y1: y1,
         x2: x2,
-        y2: y2,
+        y2: y2
     };
 }
 
@@ -203,7 +199,6 @@ function postprocess(
     const tensor = results["output0"] as OrtModule.Tensor;
     const attrs = tensor.dims[2]; // 例: [1, 8400, 84], [1, 300, 6]
     const data = tensor.data as Float32Array; // 実際のデータが格納された1次元配列
-
 
     // スコアが 0.1 = 10% より大きいボックスを抽出
     let detections: Detection[] = [];

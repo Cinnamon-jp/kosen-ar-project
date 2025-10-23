@@ -20,6 +20,25 @@ interface CollisionBox {
     height: number;
 }
 
+// ベクトル用と初期位置用のランダムな数値を生成する関数（min～max を含む）
+function getRandomNumber(
+    min: number,
+    max: number,
+    isInteger: boolean = false
+): number {
+    if (isInteger) {
+        // 整数の場合は min～max の範囲で包含
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+    // 浮動小数点数の場合も上限を超えないよう調整
+    const rand = Math.random() * (max - min) + min;
+    return rand > max ? max : rand;
+}
+
+// 50%の確率で入力した数字の符号を反転する関数
+function randomSign(num: number): number {
+    return Math.random() < 0.5 ? -num : num;
+}
 
 // HTMLに画像を追加する関数（幅のみ指定しアスペクト比を維持）
 function addPictureToHtml(
@@ -27,25 +46,25 @@ function addPictureToHtml(
     container: HTMLDivElement,
     width: number,
     positionX: number,
-    positionY: number,
+    positionY: number
 ): HTMLImageElement {
-    const img = new Image()
-    img.src = pictureUrl
-    img.style.position = 'absolute'
-    img.style.transform = `translate(${positionX}px, ${positionY}px)`
+    const img = new Image();
+    img.src = pictureUrl;
+    img.style.position = "absolute";
+    img.style.transform = `translate(${positionX}px, ${positionY}px)`;
 
     // 画像がロードされたらアスペクト比に応じて高さを設定
     img.onload = () => {
-        const ratio = img.naturalWidth / img.naturalHeight
-        img.width = width
-        img.height = width / ratio
-    }
+        const ratio = img.naturalWidth / img.naturalHeight;
+        img.width = width;
+        img.height = width / ratio;
+    };
 
-    container.appendChild(img)
-    return img
+    container.appendChild(img);
+    return img;
 }
 
-// 画像の移動ロジックを計算する純粋な関数
+// 画像の移動ロジックを計算する関数
 function calculateImageMovement(
     currentX: number,
     currentY: number,
@@ -54,7 +73,7 @@ function calculateImageMovement(
     imageHeight: number,
     containerWidth: number,
     containerHeight: number,
-    collisionBoxes: CollisionBox[],
+    collisionBoxes: CollisionBox[]
 ): { newX: number; newY: number; newVector: [number, number] } {
     let x = currentX;
     let y = currentY;
@@ -82,12 +101,7 @@ function calculateImageMovement(
 
     // 衝突判定ボックスとの衝突判定
     for (const box of collisionBoxes) {
-        if (
-            x < box.x + box.width &&
-            x + imageWidth > box.x &&
-            y < box.y + box.height &&
-            y + imageHeight > box.y
-        ) {
+        if (x < box.x + box.width && x + imageWidth > box.x && y < box.y + box.height && y + imageHeight > box.y) {
             // 画像とボックスの中心座標
             const imgCenterX = x + imageWidth / 2;
             const imgCenterY = y + imageHeight / 2;
@@ -99,12 +113,13 @@ function calculateImageMovement(
             const diffY = imgCenterY - boxCenterY;
 
             // 重なりを計算
-            const overlapX = (imageWidth / 2 + box.width / 2) - Math.abs(diffX);
-            const overlapY = (imageHeight / 2 + box.height / 2) - Math.abs(diffY);
+            const overlapX = imageWidth / 2 + box.width / 2 - Math.abs(diffX);
+            const overlapY = imageHeight / 2 + box.height / 2 - Math.abs(diffY);
 
             // X方向の重なりの方がY方向の重なりより大きい場合、Y方向の速度を反転（横の辺との衝突）
             if (overlapX > overlapY) {
-                if (diffY < 0) { // 画像の中心がボックスの中心より上
+                if (diffY < 0) {
+                    // 画像の中心がボックスの中心より上
                     y -= overlapY; // 上に押し出す
                 } else {
                     y += overlapY; // 下に押し出す
@@ -112,7 +127,8 @@ function calculateImageMovement(
                 dy = -dy;
             } else {
                 // Y方向の重なりの方が大きい、または等しい場合、X方向の速度を反転（縦の辺との衝突）
-                if (diffX < 0) { // 画像の中心がボックスの中心より左
+                if (diffX < 0) {
+                    // 画像の中心がボックスの中心より左
                     x -= overlapX; // 左に押し出す
                 } else {
                     x += overlapX; // 右に押し出す
@@ -128,64 +144,45 @@ function calculateImageMovement(
     return { newX: x, newY: y, newVector: [dx, dy] };
 }
 
-
 // メインの関数
 export default function animate(
     imgContainer: HTMLDivElement,
-    getDetections: () => Detection[],
+    getDetections: () => Detection[]
 ): void {
-    // 初期位置
-    let logoPos = { x: 50, y: 50 };
-    let datePos = { x: 150, y: 150 };
+    // 初期位置をランダムに設定
+    let logoPos = { x: getRandomNumber(0, imgContainer.offsetWidth), y: getRandomNumber(0, imgContainer.offsetHeight) };
+    let datePos = { x: getRandomNumber(0, imgContainer.offsetWidth), y: getRandomNumber(0, imgContainer.offsetHeight) };
 
-    const logoImg = addPictureToHtml(pictureUrls[0], imgContainer, 100, logoPos.x, logoPos.y);
+    const logoImg = addPictureToHtml(pictureUrls[0], imgContainer, 300, logoPos.x, logoPos.y);
     const dateImg = addPictureToHtml(pictureUrls[1], imgContainer, 100, datePos.x, datePos.y);
 
-    let logoVector: [number, number] = [5, 5];
-    let dateVector: [number, number] = [6, 3];
-
-    // --- ▼ パフォーマンス改善のための変更点 ▼ ---
+    // ランダムにベクトルを生成
+    let logoVector: [number, number] = [randomSign(getRandomNumber(3, 6)), randomSign(getRandomNumber(3, 6))];
+    let dateVector: [number, number] = [randomSign(getRandomNumber(3, 6)), randomSign(getRandomNumber(3, 6))];
 
     let containerWidth = imgContainer.offsetWidth;
     let containerHeight = imgContainer.offsetHeight;
-    let logoWidth = 0;
-    let logoHeight = 0;
-    let dateWidth = 0;
-    let dateHeight = 0;
-
-    logoImg.onload = () => {
-        const ratio = logoImg.naturalWidth / logoImg.naturalHeight;
-        logoImg.width = 100;
-        logoImg.height = 100 / ratio;
-        logoWidth = logoImg.width;
-        logoHeight = logoImg.height;
-    };
-
-    dateImg.onload = () => {
-        const ratio = dateImg.naturalWidth / dateImg.naturalHeight;
-        dateImg.width = 100;
-        dateImg.height = 100 / ratio;
-        dateWidth = dateImg.width;
-        dateHeight = dateImg.height;
-    };
 
     // ウィンドウリサイズ時にコンテナサイズを更新
-    window.addEventListener('resize', () => {
+    window.addEventListener("resize", () => {
         containerWidth = imgContainer.offsetWidth;
         containerHeight = imgContainer.offsetHeight;
     });
 
-    // --- ▲ パフォーマンス改善のための変更点 ▲ ---
-
     function tick() {
+        // 画像の読み込みが完了するまでアニメーションを開始しない
+        if (logoImg.width === 0 || logoImg.height === 0 || dateImg.width === 0 || dateImg.height === 0) {
+            requestAnimationFrame(tick);
+            return;
+        }
+
         const detections = getDetections();
 
-        // ▼ 毎フレームのDOMアクセスを削除し、キャッシュした変数を使用
-        const collisionBoxes: CollisionBox[] = detections.map(d => ({
+        const collisionBoxes: CollisionBox[] = detections.map((d) => ({
             x: d.x1 * containerWidth,
             y: d.y1 * containerHeight,
             width: (d.x2 - d.x1) * containerWidth,
-            height: (d.y2 - d.y1) * containerHeight,
+            height: (d.y2 - d.y1) * containerHeight
         }));
 
         // logoImg の移動計算
@@ -193,8 +190,8 @@ export default function animate(
             logoPos.x,
             logoPos.y,
             logoVector,
-            logoWidth, // ▼ キャッシュした値を使用
-            logoHeight, // ▼ キャッシュした値を使用
+            logoImg.width,
+            logoImg.height,
             containerWidth,
             containerHeight,
             collisionBoxes
@@ -207,8 +204,8 @@ export default function animate(
             datePos.x,
             datePos.y,
             dateVector,
-            dateWidth, // ▼ キャッシュした値を使用
-            dateHeight, // ▼ キャッシュした値を使用
+            dateImg.width,
+            dateImg.height,
             containerWidth,
             containerHeight,
             collisionBoxes
