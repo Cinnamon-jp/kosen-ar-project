@@ -1,19 +1,16 @@
 // HTML要素の取得
 const video = document.getElementById("video") as HTMLVideoElement;
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+const imgContainer = document.getElementById("img-container") as HTMLDivElement;
 const captureButton = document.getElementById("capture-button") as HTMLButtonElement;
 const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
-
-// セッター関数
-export function getBoundingBoxCanvas(): HTMLCanvasElement {
-    return canvas;
-}
 
 // 関数のインポート
 import startCamera from "./functions/startCamera.ts";
 import createOnnxSession from "./functions/createOnnxSession.ts";
 import inferOnnxModel from "./functions/inferOnnxModel.ts";
 import drawDetections from "./functions/drawDetections.ts";
+import animate from "./functions/animate.ts";
 import takePicture from "./functions/takePicture.ts";
 
 // 型のインポート
@@ -35,7 +32,7 @@ async function main(): Promise<void> {
         desynchronized: true, // レイテンシを抑えて連続描画に最適化
         alpha: false // アルファ合成処理を省略して描画コストを下げる
     });
-
+    
     // 使用するONNXモデルURLの指定
     const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n_half.onnx`;
     // ONNXセッションの作成
@@ -59,24 +56,30 @@ async function main(): Promise<void> {
 
     let results: Detection[] = []; // 推論結果を格納する配列
     // 最新の推論結果を返す関数
-    // function getDetections(): Detection[] {
-    //     return results;
-    // }
+    function getDetections(): Detection[] {
+        return results;
+    }
 
     captureButton.addEventListener("click", () => {
         try {
-            takePicture(video);
+            takePicture(video, imgContainer);
         } catch (err) {
             console.error("写真撮影中にエラーが発生しました:", err);
             throw err;
         }
     });
 
+    // アニメーションの開始
+    animate(imgContainer, getDetections);
+
     // 100msごとに推論と描画を繰り返す
     while (true) {
         try {
             // ONNXモデルの推論実行
+            const startTime = performance.now();
             results = await inferOnnxModel(session, video, tempCanvas, tempCtx, targetClasses);
+            const endTime = performance.now();
+            console.log(`Inference time: ${(endTime - startTime).toFixed(2)} ms`);
             // バウンディングボックスの描画
             drawDetections(results, ctx, canvas.width, canvas.height);
         } catch (err) {

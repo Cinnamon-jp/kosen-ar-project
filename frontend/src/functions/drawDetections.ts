@@ -1,4 +1,4 @@
-import type { Detection } from "./inferOnnxModel";
+import type { Detection } from "./inferOnnxModel.ts";
 
 export default function drawDetections(
     detections: Detection[],

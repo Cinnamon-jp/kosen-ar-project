@@ -1,5 +1,6 @@
 export default function takePicture(
     video: HTMLVideoElement,
+    imgContainer: HTMLDivElement,
 ): void {
     // 一時的なキャンバスを作成
     const tempCanvas = document.createElement("canvas");
@@ -12,6 +13,23 @@ export default function takePicture(
 
     // フレームを一時キャンバスに描画
     tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+
+    // imgContainer内の画像を取得
+    const images = imgContainer.getElementsByTagName("img");
+
+    // 各画像を描画
+    for (const img of images) {
+        const x = parseInt(img.style.left, 10);
+        const y = parseInt(img.style.top, 10);
+        const width = img.width;
+        const height = img.height;
+
+        // videoのサイズとimgContainerのサイズの比率を考慮して描画位置を調整
+        const scaleX = tempCanvas.width / imgContainer.offsetWidth;
+        const scaleY = tempCanvas.height / imgContainer.offsetHeight;
+
+        tempCtx.drawImage(img, x * scaleX, y * scaleY, width * scaleX, height * scaleY);
+    }
 
     // 画像データをBlob形式で取得
     tempCanvas.toBlob((blob) => {
