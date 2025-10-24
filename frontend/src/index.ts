@@ -63,22 +63,52 @@ async function main(): Promise<void> {
     // アニメーションの開始
     animate(imgContainer, getDetections);
 
-    // 100msごとに推論と描画を繰り返す
-    while (true) {
-        try {
-            const bitmap = await createImageBitmap(video);
-            results = await new Promise<Detection[]>((resolve) => {
-                inferWorker.onmessage = (e: MessageEvent) => {
-                    if (e.data.type === "inferResult") resolve(e.data.detections);
-                };
-                inferWorker.postMessage({ type: "infer", bitmap, targetClasses }, [bitmap]);
-            });
-            drawDetections(results, ctx, canvas.width, canvas.height);
-        } catch (err) {
-            console.error("ONNXモデルの推論中にエラーが発生しました:", err);
+    // イベントハンドラをループの外で1回だけ設定
+    let resolveInfer: ((value: Detection[]) => void) | null = null;
+    inferWorker.onmessage = (e: MessageEvent) => {
+        if (e.data.type === "inferResult" && resolveInfer) {
+            resolveInfer(e.data.detections);
+            resolveInfer = null;
         }
-        await new Promise((resolve) => setTimeout(resolve, 50));
+    };
+
+    // 推論状態の管理
+    let isInferring = false;
+    let lastFrameTime = 0;
+    const MIN_FRAME_INTERVAL = 33; // 約30fps（必要に応じて調整可能）
+
+    // requestAnimationFrameを使用した推論ループ
+    async function inferLoop() {
+        const now = performance.now();
+
+        // 前回のフレームから十分な時間が経過し、かつ推論中でない場合のみ実行
+        if (now - lastFrameTime >= MIN_FRAME_INTERVAL && !isInferring) {
+            lastFrameTime = now;
+            isInferring = true;
+
+            try {
+                const bitmap = await createImageBitmap(video);
+                const inferredResults = await new Promise<Detection[]>((resolve) => {
+                    resolveInfer = resolve;
+                    inferWorker.postMessage({ type: "infer", bitmap, targetClasses }, [bitmap]);
+                });
+                results = inferredResults;
+                drawDetections(results, ctx, canvas.width, canvas.height);
+            } catch (err) {
+                console.error("ONNXモデルの推論中にエラーが発生しました:", err);
+            } finally {
+                isInferring = false;
+            }
+        } else if (isInferring) {
+            // 推論中は前回の結果を再描画
+            drawDetections(results, ctx, canvas.width, canvas.height);
+        }
+
+        requestAnimationFrame(inferLoop);
     }
+
+    // ループ開始
+    inferLoop();
 }
 main().catch((err) => {
     console.error(err);

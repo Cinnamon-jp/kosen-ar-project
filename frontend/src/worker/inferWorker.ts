@@ -44,11 +44,25 @@ self.addEventListener("message", async (e) => {
         } else {
             targetW = Math.round(videoWidth * (OFFSCREEN_SIZE / videoHeight));
         }
-        ctx.fillStyle = PAD_COLOR;
-        ctx.fillRect(0, 0, OFFSCREEN_SIZE, OFFSCREEN_SIZE);
         const x = (OFFSCREEN_SIZE - targetW) / 2;
         const y = (OFFSCREEN_SIZE - targetH) / 2;
+        
+        // パディング領域のみを塗りつぶす（最適化）
+        ctx.fillStyle = PAD_COLOR;
+        if (y > 0) {
+            // 上下のパディング
+            ctx.fillRect(0, 0, OFFSCREEN_SIZE, y); // 上
+            ctx.fillRect(0, y + targetH, OFFSCREEN_SIZE, y); // 下
+        }
+        if (x > 0) {
+            // 左右のパディング
+            ctx.fillRect(0, 0, x, OFFSCREEN_SIZE); // 左
+            ctx.fillRect(x + targetW, 0, x, OFFSCREEN_SIZE); // 右
+        }
+        
         ctx.drawImage(bitmap, 0, 0, videoWidth, videoHeight, x, y, targetW, targetH);
+        // ImageBitmapを使用後に明示的に解放
+        bitmap.close();
         const imageData = ctx.getImageData(0, 0, OFFSCREEN_SIZE, OFFSCREEN_SIZE);
         const data = imageData.data;
         if (!cachedFloatArray) cachedFloatArray = new Float32Array(TENSOR_SIZE);

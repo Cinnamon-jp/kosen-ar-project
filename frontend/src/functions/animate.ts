@@ -7,9 +7,10 @@ const date = now.getDate();
 const BASE_URL = `${import.meta.env.BASE_URL}`;
 
 // 画像URLの配列(日付でURLを指定)
-const pictureUrls: [string, string] = [
+const pictureUrls: [string, string, string] = [
     `${BASE_URL}assets/kosensai-logo.png`,
-    `${BASE_URL}assets/kosensai-date-${date}.png`
+    `${BASE_URL}assets/kosensai-date-${date}.png`,
+    `${BASE_URL}assets/hero.png`
 ];
 
 // 衝突判定用のボックス型定義
@@ -18,6 +19,100 @@ interface CollisionBox {
     y: number;
     width: number;
     height: number;
+}
+
+// Quad-treeノード
+class QuadTreeNode {
+    bounds: CollisionBox;
+    boxes: CollisionBox[];
+    children: QuadTreeNode[] | null;
+    maxBoxes: number;
+    maxDepth: number;
+    depth: number;
+
+    constructor(bounds: CollisionBox, depth: number = 0, maxBoxes: number = 4, maxDepth: number = 5) {
+        this.bounds = bounds;
+        this.boxes = [];
+        this.children = null;
+        this.maxBoxes = maxBoxes;
+        this.maxDepth = maxDepth;
+        this.depth = depth;
+    }
+
+    // ボックスを挿入
+    insert(box: CollisionBox): void {
+        // 境界外なら挿入しない
+        if (!this.intersects(this.bounds, box)) {
+            return;
+        }
+
+        // 子ノードがある場合は子に委譲
+        if (this.children !== null) {
+            for (const child of this.children) {
+                child.insert(box);
+            }
+            return;
+        }
+
+        // 現在のノードに追加
+        this.boxes.push(box);
+
+        // 分割条件: 最大数を超え、かつ最大深度に達していない
+        if (this.boxes.length > this.maxBoxes && this.depth < this.maxDepth) {
+            this.subdivide();
+        }
+    }
+
+    // ノードを4分割
+    subdivide(): void {
+        const { x, y, width, height } = this.bounds;
+        const halfWidth = width / 2;
+        const halfHeight = height / 2;
+
+        this.children = [
+            new QuadTreeNode({ x, y, width: halfWidth, height: halfHeight }, this.depth + 1, this.maxBoxes, this.maxDepth),
+            new QuadTreeNode({ x: x + halfWidth, y, width: halfWidth, height: halfHeight }, this.depth + 1, this.maxBoxes, this.maxDepth),
+            new QuadTreeNode({ x, y: y + halfHeight, width: halfWidth, height: halfHeight }, this.depth + 1, this.maxBoxes, this.maxDepth),
+            new QuadTreeNode({ x: x + halfWidth, y: y + halfHeight, width: halfWidth, height: halfHeight }, this.depth + 1, this.maxBoxes, this.maxDepth)
+        ];
+
+        // 既存のボックスを子ノードに再配置
+        for (const box of this.boxes) {
+            for (const child of this.children) {
+                child.insert(box);
+            }
+        }
+        this.boxes = [];
+    }
+
+    // 範囲と交差するボックスを取得
+    query(range: CollisionBox, result: CollisionBox[] = []): CollisionBox[] {
+        // 範囲外なら何もしない
+        if (!this.intersects(this.bounds, range)) {
+            return result;
+        }
+
+        // 子ノードがある場合は子に問い合わせ
+        if (this.children !== null) {
+            for (const child of this.children) {
+                child.query(range, result);
+            }
+        } else {
+            // リーフノードの場合、ボックスをチェック
+            for (const box of this.boxes) {
+                if (this.intersects(range, box)) {
+                    result.push(box);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // 2つのボックスが交差しているかチェック
+    intersects(a: CollisionBox, b: CollisionBox): boolean {
+        return !(a.x + a.width < b.x || b.x + b.width < a.x || a.y + a.height < b.y || b.y + b.height < a.y);
+    }
 }
 
 // ベクトル用と初期位置用のランダムな数値を生成する関数（min～max を含む）
@@ -73,7 +168,8 @@ function calculateImageMovement(
     imageHeight: number,
     containerWidth: number,
     containerHeight: number,
-    collisionBoxes: CollisionBox[]
+    collisionBoxes: CollisionBox[],
+    quadTree: QuadTreeNode | null = null
 ): { newX: number; newY: number; newVector: [number, number] } {
     let x = currentX;
     let y = currentY;
@@ -100,7 +196,12 @@ function calculateImageMovement(
     }
 
     // 衝突判定ボックスとの衝突判定
-    for (const box of collisionBoxes) {
+    // Quad-treeがある場合は範囲クエリで近傍のボックスのみチェック
+    const boxesToCheck = quadTree !== null
+        ? quadTree.query({ x, y, width: imageWidth, height: imageHeight })
+        : collisionBoxes;
+
+    for (const box of boxesToCheck) {
         if (x < box.x + box.width && x + imageWidth > box.x && y < box.y + box.height && y + imageHeight > box.y) {
             // 画像とボックスの中心座標
             const imgCenterX = x + imageWidth / 2;
@@ -153,8 +254,33 @@ export default function animate(
     let logoPos = { x: getRandomNumber(0, imgContainer.offsetWidth), y: getRandomNumber(0, imgContainer.offsetHeight) };
     let datePos = { x: getRandomNumber(0, imgContainer.offsetWidth), y: getRandomNumber(0, imgContainer.offsetHeight) };
 
+    // 画像を追加
     const logoImg = addPictureToHtml(pictureUrls[0], imgContainer, 200, logoPos.x, logoPos.y);
     const dateImg = addPictureToHtml(pictureUrls[1], imgContainer, 70, datePos.x, datePos.y);
+
+    // heroImgの配列とプール
+    const MAX_HERO_IMAGES = 10; // 最大想定数（必要に応じて調整）
+    let heroImgsArray: HTMLImageElement[] = [];
+    // heroImgのアスペクト比をキャッシュ
+    const heroImgAspectRatios = new Map<HTMLImageElement, number>();
+    
+    // heroImg用のプールを事前作成
+    for (let i = 0; i < MAX_HERO_IMAGES; i++) {
+        const heroImg = addPictureToHtml(pictureUrls[2], imgContainer, 100, 0, 0);
+        heroImg.style.display = "none"; // 初期状態は非表示
+        heroImgsArray.push(heroImg);
+        
+        // アスペクト比をキャッシュ
+        heroImg.onload = () => {
+            const ratio = heroImg.naturalWidth / heroImg.naturalHeight;
+            heroImgAspectRatios.set(heroImg, ratio);
+        };
+        // 既に読み込まれている場合は即座に設定
+        if (heroImg.complete && heroImg.naturalWidth > 0) {
+            const ratio = heroImg.naturalWidth / heroImg.naturalHeight;
+            heroImgAspectRatios.set(heroImg, ratio);
+        }
+    }
 
     // ランダムにベクトルを生成
     let logoVector: [number, number] = [randomSign(getRandomNumber(3, 6)), randomSign(getRandomNumber(3, 6))];
@@ -163,27 +289,62 @@ export default function animate(
     let containerWidth = imgContainer.offsetWidth;
     let containerHeight = imgContainer.offsetHeight;
 
+    // 画像読み込み完了フラグ
+    let imagesLoaded = false;
+
     // ウィンドウリサイズ時にコンテナサイズを更新
     window.addEventListener("resize", () => {
         containerWidth = imgContainer.offsetWidth;
         containerHeight = imgContainer.offsetHeight;
     });
 
+    // collision box配列を再利用するための変数
+    let collisionBoxes: CollisionBox[] = [];
+    // Quad-treeを使用する閾値（ボックス数がこれ以上の場合にQuad-treeを使用）
+    const QUADTREE_THRESHOLD = 5;
+
     function tick() {
-        // 画像の読み込みが完了するまでアニメーションを開始しない
-        if (logoImg.width === 0 || logoImg.height === 0 || dateImg.width === 0 || dateImg.height === 0) {
-            requestAnimationFrame(tick);
-            return;
+        // 画像の読み込みが完了するまでアニメーションを開始しない（初回のみチェック）
+        if (!imagesLoaded) {
+            if (logoImg.width === 0 || logoImg.height === 0 || dateImg.width === 0 || dateImg.height === 0) {
+                requestAnimationFrame(tick);
+                return;
+            }
+            imagesLoaded = true;
         }
 
         const detections = getDetections();
 
-        const collisionBoxes: CollisionBox[] = detections.map((d) => ({
-            x: d.x1 * containerWidth,
-            y: d.y1 * containerHeight,
-            width: (d.x2 - d.x1) * containerWidth,
-            height: (d.y2 - d.y1) * containerHeight
-        }));
+        // collision box配列を再利用（長さが変わる場合のみ再作成）
+        if (collisionBoxes.length !== detections.length) {
+            collisionBoxes = new Array(detections.length);
+            for (let i = 0; i < detections.length; i++) {
+                collisionBoxes[i] = { x: 0, y: 0, width: 0, height: 0 };
+            }
+        }
+
+        // 既存の配列の値を更新
+        for (let i = 0; i < detections.length; i++) {
+            const d = detections[i];
+            collisionBoxes[i].x = d.x1 * containerWidth;
+            collisionBoxes[i].y = d.y1 * containerHeight;
+            collisionBoxes[i].width = (d.x2 - d.x1) * containerWidth;
+            collisionBoxes[i].height = (d.y2 - d.y1) * containerHeight;
+        }
+
+        // Quad-treeの構築（ボックス数が閾値を超える場合のみ）
+        let quadTree: QuadTreeNode | null = null;
+        if (collisionBoxes.length > QUADTREE_THRESHOLD) {
+            quadTree = new QuadTreeNode({
+                x: 0,
+                y: 0,
+                width: containerWidth,
+                height: containerHeight
+            });
+            for (const box of collisionBoxes) {
+                quadTree.insert(box);
+            }
+        }
 
         // logoImg の移動計算
         const logoResult = calculateImageMovement(
@@ -194,7 +355,8 @@ export default function animate(
             logoImg.height,
             containerWidth,
             containerHeight,
-            collisionBoxes
+            collisionBoxes,
+            quadTree
         );
         logoPos = { x: logoResult.newX, y: logoResult.newY };
         logoVector = logoResult.newVector;
@@ -208,14 +370,41 @@ export default function animate(
             dateImg.height,
             containerWidth,
             containerHeight,
-            collisionBoxes
+            collisionBoxes,
+            quadTree
         );
         datePos = { x: dateResult.newX, y: dateResult.newY };
         dateVector = dateResult.newVector;
 
+        // heroImgの描画処理 (検出結果の上辺に追従させる)
+        const activeCount = Math.min(collisionBoxes.length, MAX_HERO_IMAGES);
+        
         // DOM更新を transform で一括で行う
         logoImg.style.transform = `translate(${logoPos.x}px, ${logoPos.y}px)`;
         dateImg.style.transform = `translate(${datePos.x}px, ${datePos.y}px)`;
+        
+        // heroImgのサイズと位置を1つのループで設定
+        heroImgsArray.forEach((heroImg, index) => {
+            if (index < activeCount) {
+                // 表示する画像
+                const box = collisionBoxes[index];
+                const ratio = heroImgAspectRatios.get(heroImg);
+                
+                // アスペクト比がキャッシュされている場合のみ処理
+                if (ratio) {
+                    heroImg.width = box.width / 2;
+                    heroImg.height = heroImg.width / ratio;
+                    
+                    const heroImgX = box.x + (box.width - heroImg.width) / 2;
+                    const heroImgY = box.y - heroImg.height - 10;
+                    heroImg.style.transform = `translate(${heroImgX}px, ${heroImgY}px)`;
+                    heroImg.style.display = "block";
+                }
+            } else {
+                // 非表示にする画像
+                heroImg.style.display = "none";
+            }
+        });
 
         requestAnimationFrame(tick);
     }
