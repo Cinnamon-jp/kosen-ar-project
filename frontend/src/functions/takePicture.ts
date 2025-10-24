@@ -2,17 +2,48 @@ export default function takePicture(
     video: HTMLVideoElement,
     imgContainer: HTMLDivElement
 ): void {
-    // 一時的なキャンバスを作成
+    // ビューポートとビデオのサイズを取得
+    const viewportWidth = imgContainer.offsetWidth;
+    const viewportHeight = imgContainer.offsetHeight;
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+
+    // ビューポートとビデオのアスペクト比を計算
+    const viewportAspect = viewportWidth / viewportHeight;
+    const videoAspect = videoWidth / videoHeight;
+
+    // object-fit: cover のロジックを実装
+    // ビデオのどの部分が実際に表示されているかを計算
+    let srcX = 0;
+    let srcY = 0;
+    let srcWidth = videoWidth;
+    let srcHeight = videoHeight;
+
+    if (videoAspect > viewportAspect) {
+        // ビデオの方が横長 → 左右がトリミングされる
+        srcWidth = videoHeight * viewportAspect;
+        srcX = (videoWidth - srcWidth) / 2;
+    } else {
+        // ビデオの方が縦長 → 上下がトリミングされる
+        srcHeight = videoWidth / viewportAspect;
+        srcY = (videoHeight - srcHeight) / 2;
+    }
+
+    // 一時的なキャンバスを作成（ビューポートのアスペクト比に合わせる）
     const tempCanvas = document.createElement("canvas");
     tempCanvas.style.display = "none"; // 非表示
-    tempCanvas.width = video.videoWidth;
-    tempCanvas.height = video.videoHeight;
+    tempCanvas.width = viewportWidth;
+    tempCanvas.height = viewportHeight;
 
     const tempCtx = tempCanvas.getContext("2d", {});
     if (!tempCtx) throw new Error("一時キャンバスのコンテキストが取得できませんでした");
 
-    // フレームを一時キャンバスに描画
-    tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+    // object-fit: cover でトリミングされた部分のみをキャンバスに描画
+    tempCtx.drawImage(
+        video,
+        srcX, srcY, srcWidth, srcHeight,  // ソース（ビデオから切り取る範囲）
+        0, 0, viewportWidth, viewportHeight  // デスティネーション（キャンバス全体）
+    );
 
     // imgContainer内の画像を取得
     const images = imgContainer.getElementsByTagName("img");
@@ -37,11 +68,8 @@ export default function takePicture(
         const width = img.width;
         const height = img.height;
 
-        // videoのサイズとimgContainerのサイズの比率を考慮して描画位置を調整
-        const scaleX = tempCanvas.width / imgContainer.offsetWidth;
-        const scaleY = tempCanvas.height / imgContainer.offsetHeight;
-
-        tempCtx.drawImage(img, x * scaleX, y * scaleY, width * scaleX, height * scaleY);
+        // 画面表示と同じ座標系で描画（スケール変換不要）
+        tempCtx.drawImage(img, x, y, width, height);
     }
 
     // 画像データをBlob形式で取得
