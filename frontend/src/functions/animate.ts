@@ -283,8 +283,8 @@ export default function animate(
     }
 
     // ランダムにベクトルを生成
-    let logoVector: [number, number] = [randomSign(getRandomNumber(3, 6)), randomSign(getRandomNumber(3, 6))];
-    let dateVector: [number, number] = [randomSign(getRandomNumber(3, 6)), randomSign(getRandomNumber(3, 6))];
+    let logoVector: [number, number] = [randomSign(getRandomNumber(2, 4)), randomSign(getRandomNumber(2, 4))];
+    let dateVector: [number, number] = [randomSign(getRandomNumber(2, 4)), randomSign(getRandomNumber(2, 4))];
 
     let containerWidth = imgContainer.offsetWidth;
     let containerHeight = imgContainer.offsetHeight;
@@ -392,7 +392,7 @@ export default function animate(
                 
                 // アスペクト比がキャッシュされている場合のみ処理
                 if (ratio) {
-                    heroImg.width = box.width / 2;
+                    heroImg.width = box.width;
                     heroImg.height = heroImg.width / ratio;
                     
                     const heroImgX = box.x + (box.width - heroImg.width) / 2;
