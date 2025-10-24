@@ -37,7 +37,9 @@ export default function takePicture(
         const width = img.width;
         const height = img.height;
 
-        // videoのサイズとimgContainerのサイズの比率を考慮して描画位置を調整
+        // imgContainerとvideoのネイティブ解像度の比率を考慮して描画位置を調整
+        // imgContainerのサイズ = videoの表示サイズ（CSSで設定されている）
+        // imgContainerの offsetWidth/Height は、実際のビデオ表示サイズと一致している
         const scaleX = tempCanvas.width / imgContainer.offsetWidth;
         const scaleY = tempCanvas.height / imgContainer.offsetHeight;
 
