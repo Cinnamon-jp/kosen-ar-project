@@ -9,7 +9,6 @@ const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
 import startCamera from "./functions/startCamera.ts";
 // 推論を実行する Web Worker
 const inferWorker = new Worker(new URL("./worker/inferWorker.ts", import.meta.url), { type: "module" });
-import drawDetections from "./functions/drawDetections.ts";
 import animate from "./functions/animate.ts";
 import takePicture from "./functions/takePicture.ts";
 
@@ -17,8 +16,6 @@ import takePicture from "./functions/takePicture.ts";
 import type { Detection } from "./functions/inferOnnxModel.ts";
 
 async function main(): Promise<void> {
-    const ctx = canvas.getContext("2d", {});
-
     // ONNXモデル用 Web Worker を初期化
     const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n_half.onnx`;
     onnxLogo.style.display = "block";
@@ -93,15 +90,11 @@ async function main(): Promise<void> {
                     inferWorker.postMessage({ type: "infer", bitmap, targetClasses }, [bitmap]);
                 });
                 results = inferredResults;
-                drawDetections(results, ctx, canvas.width, canvas.height);
             } catch (err) {
                 console.error("ONNXモデルの推論中にエラーが発生しました:", err);
             } finally {
                 isInferring = false;
             }
-        } else if (isInferring) {
-            // 推論中は前回の結果を再描画
-            drawDetections(results, ctx, canvas.width, canvas.height);
         }
 
         requestAnimationFrame(inferLoop);
