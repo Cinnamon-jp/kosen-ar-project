@@ -7,24 +7,20 @@ const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
 
 // 関数のインポート
 import startCamera from "./functions/startCamera.ts";
-// 推論を実行する Web Worker
-const inferWorker = new Worker(new URL("./worker/inferWorker.ts", import.meta.url), { type: "module" });
 import animate from "./functions/animate.ts";
 import takePicture from "./functions/takePicture.ts";
+import createOnnxSession from "./functions/createOnnxSession.ts";
+import inferOnnxModel from "./functions/inferOnnxModel.ts";
 
 // 型のインポート
 import type { Detection } from "./functions/inferOnnxModel.ts";
+import type * as ort from "onnxruntime-web";
 
 async function main(): Promise<void> {
-    // ONNXモデル用 Web Worker を初期化
+    // ONNXモデルのセッションを初期化
     const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n_half.onnx`;
     onnxLogo.style.display = "block";
-    await new Promise<void>((resolve) => {
-        inferWorker.onmessage = (e: MessageEvent) => {
-            if (e.data.type === "initDone") resolve();
-        };
-        inferWorker.postMessage({ type: "init", modelUrl });
-    });
+    const session: ort.InferenceSession = await createOnnxSession(modelUrl);
     onnxLogo.style.display = "none";
 
     // 抽出したいクラスID [0, 79]の整数 (空配列なら全クラス対象)
@@ -41,6 +37,12 @@ async function main(): Promise<void> {
     // canvas を video のネイティブ解像度に合わせる (カメラの起動後じゃないとダメ)
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+
+    // 推論用の一時canvasを作成
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = 640;
+    tempCanvas.height = 640;
+    const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true, alpha: false });
 
     let results: Detection[] = []; // 推論結果を格納する配列
     // 最新の推論結果を返す関数
@@ -60,15 +62,6 @@ async function main(): Promise<void> {
     // アニメーションの開始
     animate(imgContainer, getDetections);
 
-    // イベントハンドラをループの外で1回だけ設定
-    let resolveInfer: ((value: Detection[]) => void) | null = null;
-    inferWorker.onmessage = (e: MessageEvent) => {
-        if (e.data.type === "inferResult" && resolveInfer) {
-            resolveInfer(e.data.detections);
-            resolveInfer = null;
-        }
-    };
-
     // 推論状態の管理
     let isInferring = false;
     let lastFrameTime = 0;
@@ -84,11 +77,8 @@ async function main(): Promise<void> {
             isInferring = true;
 
             try {
-                const bitmap = await createImageBitmap(video);
-                const inferredResults = await new Promise<Detection[]>((resolve) => {
-                    resolveInfer = resolve;
-                    inferWorker.postMessage({ type: "infer", bitmap, targetClasses }, [bitmap]);
-                });
+                // メインスレッドで直接推論を実行
+                const inferredResults = await inferOnnxModel(session, video, tempCanvas, tempCtx, targetClasses);
                 results = inferredResults;
             } catch (err) {
                 console.error("ONNXモデルの推論中にエラーが発生しました:", err);

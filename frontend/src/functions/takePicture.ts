@@ -78,6 +78,11 @@ export default function takePicture(
 
     // 各画像を描画
     for (const img of images) {
+        // display: none の画像はスキップ
+        if (img.style.display === 'none') {
+            continue;
+        }
+        
         // img の transform から位置を取得
         const computedStyle = getComputedStyle(img);
         const transform = computedStyle.transform;

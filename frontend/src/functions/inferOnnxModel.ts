@@ -200,9 +200,9 @@ function postprocess(
     const attrs = tensor.dims[2]; // 例: [1, 8400, 84], [1, 300, 6]
     const data = tensor.data as Float32Array; // 実際のデータが格納された1次元配列
 
-    // スコアが 0.1 = 10% より大きいボックスを抽出
+    // スコアが 0.5 = 50% より大きいボックスを抽出
     let detections: Detection[] = [];
-    for (let i = 0; data[attrs * i + 4] > 0.1; i++) {
+    for (let i = 0; data[attrs * i + 4] > 0.5; i++) {
         const box = getBox(data as Float32Array, attrs, i);
         const scaled = convertToOriginalScale(box, conversion, tempCanvasWidth, tempCanvasHeight);
         detections.push(scaled);
