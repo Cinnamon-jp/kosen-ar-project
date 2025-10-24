@@ -7,7 +7,6 @@ const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
 
 // 関数のインポート
 import startCamera from "./functions/startCamera.ts";
-import calculateVideoDisplayArea from "./functions/calculateVideoDisplayArea.ts";
 // 推論を実行する Web Worker
 const inferWorker = new Worker(new URL("./worker/inferWorker.ts", import.meta.url), { type: "module" });
 import drawDetections from "./functions/drawDetections.ts";
@@ -16,33 +15,6 @@ import takePicture from "./functions/takePicture.ts";
 
 // 型のインポート
 import type { Detection } from "./functions/inferOnnxModel.ts";
-
-// canvas と imgContainer を video の実際の表示領域に合わせる関数
-function syncElementsWithVideo(): void {
-    // video の実際の表示領域を計算（黒い帯を除いた部分）
-    const displayArea = calculateVideoDisplayArea(video);
-    
-    if (displayArea.width === 0 || displayArea.height === 0) {
-        // ビデオがまだロードされていない場合は何もしない
-        return;
-    }
-    
-    // canvas のネイティブ解像度を video のネイティブ解像度に設定
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    // canvas の表示サイズと位置を video の実際の表示領域に合わせる
-    canvas.style.width = `${displayArea.width}px`;
-    canvas.style.height = `${displayArea.height}px`;
-    canvas.style.left = `${displayArea.left}px`;
-    canvas.style.top = `${displayArea.top}px`;
-    
-    // imgContainer の表示サイズと位置も video の実際の表示領域に合わせる
-    imgContainer.style.width = `${displayArea.width}px`;
-    imgContainer.style.height = `${displayArea.height}px`;
-    imgContainer.style.left = `${displayArea.left}px`;
-    imgContainer.style.top = `${displayArea.top}px`;
-}
 
 async function main(): Promise<void> {
     const ctx = canvas.getContext("2d", {});
@@ -69,13 +41,9 @@ async function main(): Promise<void> {
         throw err;
     }
 
-    // canvas と imgContainer を video の表示サイズに合わせる（カメラ起動後に実行）
-    syncElementsWithVideo();
-
-    // ウィンドウリサイズ時にもサイズを更新
-    window.addEventListener("resize", () => {
-        syncElementsWithVideo();
-    });
+    // canvas を video のネイティブ解像度に合わせる (カメラの起動後じゃないとダメ)
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
 
     let results: Detection[] = []; // 推論結果を格納する配列
     // 最新の推論結果を返す関数
