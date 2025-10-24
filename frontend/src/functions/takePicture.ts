@@ -29,20 +29,29 @@ export default function takePicture(
         srcY = (videoHeight - srcHeight) / 2;
     }
 
-    // 一時的なキャンバスを作成（ビューポートのアスペクト比に合わせる）
+    // 一時的なキャンバスを作成（高解像度で作成）
+    // 解像度を2倍にして画質を向上
+    const scaleFactor = 2;
     const tempCanvas = document.createElement("canvas");
     tempCanvas.style.display = "none"; // 非表示
-    tempCanvas.width = viewportWidth;
-    tempCanvas.height = viewportHeight;
+    tempCanvas.width = viewportWidth * scaleFactor;
+    tempCanvas.height = viewportHeight * scaleFactor;
 
-    const tempCtx = tempCanvas.getContext("2d", {});
+    const tempCtx = tempCanvas.getContext("2d", {
+        alpha: false, // アルファチャンネル不要で高速化
+        willReadFrequently: false
+    });
     if (!tempCtx) throw new Error("一時キャンバスのコンテキストが取得できませんでした");
 
-    // object-fit: cover でトリミングされた部分のみをキャンバスに描画
+    // 画像補間の品質を最高に設定
+    tempCtx.imageSmoothingEnabled = true;
+    tempCtx.imageSmoothingQuality = "high";
+
+    // object-fit: cover でトリミングされた部分のみをキャンバスに描画（高解像度で）
     tempCtx.drawImage(
         video,
         srcX, srcY, srcWidth, srcHeight,  // ソース（ビデオから切り取る範囲）
-        0, 0, viewportWidth, viewportHeight  // デスティネーション（キャンバス全体）
+        0, 0, viewportWidth * scaleFactor, viewportHeight * scaleFactor  // デスティネーション（キャンバス全体）
     );
 
     // imgContainer内の画像を取得
@@ -68,11 +77,17 @@ export default function takePicture(
         const width = img.width;
         const height = img.height;
 
-        // 画面表示と同じ座標系で描画（スケール変換不要）
-        tempCtx.drawImage(img, x, y, width, height);
+        // 画面表示と同じ座標系で描画（スケールファクターを適用）
+        tempCtx.drawImage(
+            img,
+            x * scaleFactor,
+            y * scaleFactor,
+            width * scaleFactor,
+            height * scaleFactor
+        );
     }
 
-    // 画像データをBlob形式で取得
+    // 画像データをBlob形式で取得（高品質JPEGで出力）
     tempCanvas.toBlob((blob) => {
         if (!blob) throw new Error("画像データの取得に失敗しました");
 
@@ -90,5 +105,5 @@ export default function takePicture(
 
         // メモリ解放
         URL.revokeObjectURL(url);
-    }, "image/jpeg");
+    }, "image/jpeg", 0.95); // JPEG品質を95%に設定
 }
