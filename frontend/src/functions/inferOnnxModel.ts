@@ -1,6 +1,8 @@
 import type * as OrtModule from "onnxruntime-web";
 import { getOrtRuntime } from "./createOnnxSession.ts";
 
+const feedsCache: Record<string, OrtModule.Tensor> = {};
+
 const ort = getOrtRuntime();
 
 // prettier-ignore
@@ -17,14 +19,14 @@ const ort = getOrtRuntime();
 
 // export type TYPE_COCO_CLASSES = (typeof COCO_CLASSES)[number]; // COCO_CLASSESのいずれかの文字列
 
-// 検出結果のフォーマット
+// 検出結果のフォーマット (座標は 高さ=1 幅=1 としたときの画像内での割合)
 export interface Detection {
     classId: number;
     score: number;
     x1: number;
     y1: number;
-    width: number;
-    height: number;
+    x2: number;
+    y2: number;
 }
 
 interface Conversion {
@@ -37,6 +39,8 @@ interface Conversion {
 
 // パフォーマンス最適化: Float32Arrayを再利用するためのキャッシュ
 let cachedFloatArray: Float32Array | null = null;
+// 入力Tensorを再利用するためのキャッシュ
+let cachedInputTensor: OrtModule.Tensor | null = null;
 const TENSOR_SIZE = 640 * 640 * 3; // 640x640のRGB画像
 
 // パフォーマンス最適化: 定数を事前計算
@@ -57,13 +61,13 @@ export default async function inferOnnxModel(
     const [inputTensor, conversion] = preprocess(video, tempCanvas.width, tempCanvas.height, tempCtx);
 
     // 入力テンソルのフィード
-    const feeds = { [session.inputNames[0]]: inputTensor };
+    feedsCache[session.inputNames[0]] = inputTensor;
 
     // モデル推論実行
-    const results = await session.run(feeds);
+    const results = await session.run(feedsCache);
 
     // 検出結果の後処理
-    const detections = postprocess(results, conversion);
+    const detections = postprocess(results, conversion, tempCanvas.width, tempCanvas.height);
 
     // 特定のクラス名のみ抽出
     if (targetClasses.length > 0) {
@@ -143,76 +147,65 @@ function preprocess(
         targetHeight: targetHeight
     };
 
-    // 一時canvasをクリア
-    tempCtx.clearRect(0, 0, tempCanvasWidth, tempCanvasHeight);
+    // 入力Tensorの再利用
+    if (!cachedInputTensor) {
+        cachedInputTensor = new ort.Tensor("float32", floatArray, [1, 3, tempCanvasHeight, tempCanvasWidth]);
+    }
+    return [cachedInputTensor, conversion];
+}
 
-    return [new ort.Tensor("float32", floatArray, [1, 3, tempCanvasHeight, tempCanvasWidth]), conversion];
+// モジュールレベル: i番目のボックスを取得する
+function getBox(data: Float32Array, attrs: number, i: number): Detection {
+    const base = attrs * i;
+    const x1 = data[base + 0];
+    const y1 = data[base + 1];
+    const x2 = data[base + 2];
+    const y2 = data[base + 3];
+    const score = data[base + 4];
+    const classId = data[base + 5];
+    return { classId, score, x1, y1, x2, y2 };
+}
+
+// モジュールレベル: 検出結果を元画像サイズに変換する
+function convertToOriginalScale(
+    detection: Detection,
+    conversion: Conversion,
+    tempCanvasWidth: number,
+    tempCanvasHeight: number
+): Detection {
+    const padX = (tempCanvasWidth - conversion.targetWidth) / 2;
+    const padY = (tempCanvasHeight - conversion.targetHeight) / 2;
+    const x1 = (detection.x1 - padX) / conversion.targetWidth;
+    const y1 = (detection.y1 - padY) / conversion.targetHeight;
+    const x2 = (detection.x2 - padX) / conversion.targetWidth;
+    const y2 = (detection.y2 - padY) / conversion.targetHeight;
+    return {
+        classId: detection.classId,
+        score: detection.score,
+        x1: x1,
+        y1: y1,
+        x2: x2,
+        y2: y2
+    };
 }
 
 // 画像後処理: モデルの出力を受け取り、Detectionの配列を返す
-function postprocess(results: OrtModule.InferenceSession.OnnxValueMapType, conversion: Conversion): Detection[] {
+function postprocess(
+    results: OrtModule.InferenceSession.OnnxValueMapType,
+    conversion: Conversion,
+    tempCanvasWidth: number,
+    tempCanvasHeight: number
+): Detection[] {
     const tensor = results["output0"] as OrtModule.Tensor;
     const attrs = tensor.dims[2]; // 例: [1, 8400, 84], [1, 300, 6]
     const data = tensor.data as Float32Array; // 実際のデータが格納された1次元配列
 
-    // i 番目のボックスを取得する関数 (0スタート)
-    function getBox(i: number): Detection {
-        const base = attrs * i;
-
-        const x1 = data[base + 0];
-        const y1 = data[base + 1];
-        const x2 = data[base + 2];
-        const y2 = data[base + 3];
-        const score = data[base + 4];
-        const classId = data[base + 5];
-
-        const width = x2 - x1;
-        const height = y2 - y1;
-
-        return {
-            classId: classId,
-            score: score,
-            x1: x1,
-            y1: y1,
-            width: width,
-            height: height
-        };
-    }
-
-    // canvasのサイズ (640x640固定)
-    const canvasWidth = 640; // preprocess() と同じ値
-    const canvasHeight = 640; // preprocess() と同じ値
-
-    // 検出結果を元画像サイズに変換する関数
-    function convertToOriginalScale(detection: Detection): Detection {
-        // レターボックス分を考慮して、左上座標を元画像サイズに変換 -> 整数に丸める
-        const x1 = Math.round(
-            (detection.x1 - (canvasWidth - conversion.targetWidth) / 2) *
-                (conversion.originalWidth / conversion.targetWidth)
-        );
-        const y1 = Math.round(
-            (detection.y1 - (canvasHeight - conversion.targetHeight) / 2) *
-                (conversion.originalHeight / conversion.targetHeight)
-        );
-
-        // 幅・高さを元画像サイズに変換 -> 整数に丸める
-        const width = Math.round(detection.width * (conversion.originalWidth / conversion.targetWidth));
-        const height = Math.round(detection.height * (conversion.originalHeight / conversion.targetHeight));
-
-        return {
-            classId: detection.classId,
-            score: detection.score,
-            x1: x1,
-            y1: y1,
-            width: width,
-            height: height
-        };
-    }
-
     // スコアが 0.1 = 10% より大きいボックスを抽出
     let detections: Detection[] = [];
     for (let i = 0; data[attrs * i + 4] > 0.1; i++) {
-        detections.push(convertToOriginalScale(getBox(i)));
+        const box = getBox(data as Float32Array, attrs, i);
+        const scaled = convertToOriginalScale(box, conversion, tempCanvasWidth, tempCanvasHeight);
+        detections.push(scaled);
     }
 
     // モデルにNMSを内蔵しているので、追加のNMS処理は不要

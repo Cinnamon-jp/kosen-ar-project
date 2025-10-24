@@ -1,371 +1,223 @@
-import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/Addons.js";
-
-import { getBoundingBoxCanvas } from "../index.ts";
-
 import type { Detection } from "./inferOnnxModel.ts";
 
-// 3Dモデルのパスとスケールを格納
-const BASE_URL = import.meta.env.BASE_URL; // Viteの環境変数からベースURLを取得
-const penlightScale: [number, number, number] = [0.03, 0.03, 0.03]; // ペンライトのスケールを一括指定
-const modelResources: Record<string, [string, [number, number, number]]> = {
-    mike: [`${BASE_URL}3d-models/mike.glb`, [0.1, 0.1, 0.1]],
-    pen_b: [`${BASE_URL}3d-models/penlight_b.glb`, penlightScale],
-    pen_g: [`${BASE_URL}3d-models/penlight_g.glb`, penlightScale],
-    pen_o: [`${BASE_URL}3d-models/penlight_o.glb`, penlightScale],
-    pen_p: [`${BASE_URL}3d-models/penlight_p.glb`, penlightScale],
-    pen_r: [`${BASE_URL}3d-models/penlight_r.glb`, penlightScale],
-    pen_s: [`${BASE_URL}3d-models/penlight_s.glb`, penlightScale],
-    pen_w: [`${BASE_URL}3d-models/penlight_w.glb`, penlightScale],
-    pen_y: [`${BASE_URL}3d-models/penlight_y.glb`, penlightScale],
-    star: [`${BASE_URL}3d-models/star.glb`, [0.02, 0.02, 0.02]]
-};
-const keysOfModelResources: string[] = Object.keys(modelResources);
+// 日付を格納
+const now = new Date();
+const date = now.getDate();
 
-// 衝突判定用のボックス
-export interface CollisionBox {
-    minX: number;
-    maxX: number;
-    minY: number;
-    maxY: number;
-    boxCenterX: number;
-    boxCenterY: number;
-    boxHalfWidth: number;
-    boxHalfHeight: number;
+const BASE_URL = `${import.meta.env.BASE_URL}`;
+
+// 画像URLの配列(日付でURLを指定)
+const pictureUrls: [string, string] = [
+    `${BASE_URL}assets/kosensai-logo.png`,
+    `${BASE_URL}assets/kosensai-date-${date}.png`
+];
+
+// 衝突判定用のボックス型定義
+interface CollisionBox {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
 }
 
-// ランダムな (指定した場合は任意の) 3Dモデルを読み込み、シーンに追加して、モデルオブジェクトを返す関数
-function addRandomModel(
-    loader: GLTFLoader,
-    scene: THREE.Scene,
-    modelPosition: [number, number, number],
-    modelName?: string
-): Promise<THREE.Group> {
-    let selectedModelName: string | undefined = modelName && modelResources[modelName] ? modelName : undefined;
+// ベクトル用と初期位置用のランダムな数値を生成する関数（min～max を含む）
+function getRandomNumber(
+    min: number,
+    max: number,
+    isInteger: boolean = false
+): number {
+    if (isInteger) {
+        // 整数の場合は min～max の範囲で包含
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+    // 浮動小数点数の場合も上限を超えないよう調整
+    const rand = Math.random() * (max - min) + min;
+    return rand > max ? max : rand;
+}
 
-    if (!selectedModelName) {
-        const randomIndex: number = Math.floor(Math.random() * keysOfModelResources.length);
-        selectedModelName = keysOfModelResources[randomIndex];
+// 50%の確率で入力した数字の符号を反転する関数
+function randomSign(num: number): number {
+    return Math.random() < 0.5 ? -num : num;
+}
 
-        if (modelName) {
-            console.warn(
-                `指定されたモデル "${modelName}" は見つかりませんでした。ランダムに選択したモデル "${selectedModelName}" を使用します。`
-            );
+// HTMLに画像を追加する関数（幅のみ指定しアスペクト比を維持）
+function addPictureToHtml(
+    pictureUrl: string,
+    container: HTMLDivElement,
+    width: number,
+    positionX: number,
+    positionY: number
+): HTMLImageElement {
+    const img = new Image();
+    img.src = pictureUrl;
+    img.style.position = "absolute";
+    img.style.transform = `translate(${positionX}px, ${positionY}px)`;
+
+    // 画像がロードされたらアスペクト比に応じて高さを設定
+    img.onload = () => {
+        const ratio = img.naturalWidth / img.naturalHeight;
+        img.width = width;
+        img.height = width / ratio;
+    };
+
+    container.appendChild(img);
+    return img;
+}
+
+// 画像の移動ロジックを計算する関数
+function calculateImageMovement(
+    currentX: number,
+    currentY: number,
+    vector: [number, number],
+    imageWidth: number,
+    imageHeight: number,
+    containerWidth: number,
+    containerHeight: number,
+    collisionBoxes: CollisionBox[]
+): { newX: number; newY: number; newVector: [number, number] } {
+    let x = currentX;
+    let y = currentY;
+    let dx = vector[0];
+    let dy = vector[1];
+
+    x += dx;
+    y += dy;
+
+    // 壁との衝突判定
+    if (x < 0) {
+        x = 0;
+        dx = -dx;
+    } else if (x + imageWidth > containerWidth) {
+        x = containerWidth - imageWidth;
+        dx = -dx;
+    }
+    if (y < 0) {
+        y = 0;
+        dy = -dy;
+    } else if (y + imageHeight > containerHeight) {
+        y = containerHeight - imageHeight;
+        dy = -dy;
+    }
+
+    // 衝突判定ボックスとの衝突判定
+    for (const box of collisionBoxes) {
+        if (x < box.x + box.width && x + imageWidth > box.x && y < box.y + box.height && y + imageHeight > box.y) {
+            // 画像とボックスの中心座標
+            const imgCenterX = x + imageWidth / 2;
+            const imgCenterY = y + imageHeight / 2;
+            const boxCenterX = box.x + box.width / 2;
+            const boxCenterY = box.y + box.height / 2;
+
+            // 中心間の距離
+            const diffX = imgCenterX - boxCenterX;
+            const diffY = imgCenterY - boxCenterY;
+
+            // 重なりを計算
+            const overlapX = imageWidth / 2 + box.width / 2 - Math.abs(diffX);
+            const overlapY = imageHeight / 2 + box.height / 2 - Math.abs(diffY);
+
+            // X方向の重なりの方がY方向の重なりより大きい場合、Y方向の速度を反転（横の辺との衝突）
+            if (overlapX > overlapY) {
+                if (diffY < 0) {
+                    // 画像の中心がボックスの中心より上
+                    y -= overlapY; // 上に押し出す
+                } else {
+                    y += overlapY; // 下に押し出す
+                }
+                dy = -dy;
+            } else {
+                // Y方向の重なりの方が大きい、または等しい場合、X方向の速度を反転（縦の辺との衝突）
+                if (diffX < 0) {
+                    // 画像の中心がボックスの中心より左
+                    x -= overlapX; // 左に押し出す
+                } else {
+                    x += overlapX; // 右に押し出す
+                }
+                dx = -dx;
+            }
+
+            // 1つのボックスと衝突したらループを抜ける
+            break;
         }
     }
 
-    if (!selectedModelName) {
-        return Promise.reject(new Error("利用可能な3Dモデルがありません。"));
-    }
-
-    const ensuredModelName = selectedModelName;
-
-    return new Promise((resolve, reject) => {
-        // モデルの読み込み
-        loader.load(
-            modelResources[ensuredModelName][0],
-            (gltf) => {
-                const model = gltf.scene;
-
-                // パラメータを分割代入
-                const [positionX, positionY, positionZ] = modelPosition;
-                const [scaleX, scaleY, scaleZ] = modelResources[ensuredModelName][1];
-
-                // モデルの位置とサイズを調整
-                model.position.set(positionX, positionY, positionZ);
-                model.scale.set(scaleX, scaleY, scaleZ);
-
-                scene.add(model); // シーンに追加
-                resolve(model); // 読み込んだモデルを返す
-            },
-            undefined,
-            (error) => {
-                console.error(
-                    `モデルの読み込み中にエラーが発生しました: ${modelResources[ensuredModelName][0]}`,
-                    error
-                );
-                reject(error); // エラー時にPromiseをreject
-            }
-        );
-    });
+    return { newX: x, newY: y, newVector: [dx, dy] };
 }
 
 // メインの関数
-export default async function animate(
-    canvas: HTMLCanvasElement,
-    getDetections: () => Detection[] // detectionsを返す関数を受け取る
-): Promise<void> {
-    if (!canvas) throw new Error("3D描画用のコンテナが見つかりません");
+export default function animate(
+    imgContainer: HTMLDivElement,
+    getDetections: () => Detection[]
+): void {
+    // 初期位置をランダムに設定
+    let logoPos = { x: getRandomNumber(0, imgContainer.offsetWidth), y: getRandomNumber(0, imgContainer.offsetHeight) };
+    let datePos = { x: getRandomNumber(0, imgContainer.offsetWidth), y: getRandomNumber(0, imgContainer.offsetHeight) };
 
-    // 初期化
-    let canvasWidth = canvas.clientWidth;
-    let canvasHeight = canvas.clientHeight;
+    const logoImg = addPictureToHtml(pictureUrls[0], imgContainer, 200, logoPos.x, logoPos.y);
+    const dateImg = addPictureToHtml(pictureUrls[1], imgContainer, 70, datePos.x, datePos.y);
 
-    // シーンの作成
-    const scene = new THREE.Scene();
+    // ランダムにベクトルを生成
+    let logoVector: [number, number] = [randomSign(getRandomNumber(3, 6)), randomSign(getRandomNumber(3, 6))];
+    let dateVector: [number, number] = [randomSign(getRandomNumber(3, 6)), randomSign(getRandomNumber(3, 6))];
 
-    // カメラの作成
-    const camera = new THREE.PerspectiveCamera(
-        75, // 視野角
-        canvasWidth / canvasHeight, // アスペクト比
-        0.1, // ニアクリップ面
-        1000 // ファークリップ面
-    );
+    let containerWidth = imgContainer.offsetWidth;
+    let containerHeight = imgContainer.offsetHeight;
 
-    // レンダラーの作成
-    const renderer = new THREE.WebGLRenderer({
-        // WebGLレンダラーの作成
-        canvas,
-        antialias: true,
-        alpha: true,
-        preserveDrawingBuffer: true // バッファを保持（スクリーンショット用）
+    // ウィンドウリサイズ時にコンテナサイズを更新
+    window.addEventListener("resize", () => {
+        containerWidth = imgContainer.offsetWidth;
+        containerHeight = imgContainer.offsetHeight;
     });
 
-    // レンダラーのサイズを設定
-    renderer.setSize(canvasWidth, canvasHeight);
-    renderer.setClearColor(0x000000, 0); // 背景を透明に設定
-
-    // frustum関連の変数を宣言
-    let frustumHeight: number, frustumWidth: number, visibleHalfWidth: number, visibleHalfHeight: number;
-    const distance = 5; // カメラ(0,0,0)とモデル(z=-5)の距離
-
-    // --- グリッド法のための追加 ---
-    const GRID_COLS = 10;
-    const GRID_ROWS = 10;
-    const grid = new Map<string, CollisionBox[]>();
-    let cellWidth: number, cellHeight: number;
-    // --- グリッド法のための追加ここまで ---
-
-    // ウィンドウリサイズ時の処理
-    function onWindowResize() {
-        // 新しいキャンバスサイズを取得
-        canvasWidth = canvas.clientWidth;
-        canvasHeight = canvas.clientHeight;
-
-        // カメラのアスペクト比を更新
-        camera.aspect = canvasWidth / canvasHeight;
-        camera.updateProjectionMatrix();
-
-        // レンダラーのサイズを更新
-        renderer.setSize(canvasWidth, canvasHeight);
-
-        // frustumのサイズを再計算
-        frustumHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * distance;
-        frustumWidth = frustumHeight * camera.aspect;
-        visibleHalfWidth = frustumWidth / 2;
-        visibleHalfHeight = frustumHeight / 2;
-
-        // --- グリッド法のための追加 ---
-        cellWidth = frustumWidth / GRID_COLS;
-        cellHeight = frustumHeight / GRID_ROWS;
-        // --- グリッド法のための追加ここまで ---
-    }
-    window.addEventListener("resize", onWindowResize, false);
-
-    // 環境光を追加
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
-    // 平行光源を追加
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(1, 1, 1);
-    scene.add(directionalLight);
-
-    // GLTFLoaderのインスタンスを作成
-    const loader = new GLTFLoader();
-    // 初期化終了
-
-    // 3Dモデルの読み込みとシーンへの追加
-    let modelsArray: THREE.Group[];
-    try {
-        // Promise.allで複数のモデルを並行して読み込む
-        modelsArray = await Promise.all([
-            addRandomModel(loader, scene, [0, 0, -5], "mike"),
-            addRandomModel(loader, scene, [0, 1, -5], "mike"),
-            addRandomModel(loader, scene, [0, -1, -5], "star"),
-            addRandomModel(loader, scene, [1, 0, -5], "star"),
-            addRandomModel(loader, scene, [1, 1, -5]),
-            addRandomModel(loader, scene, [1, -1, -5]),
-            addRandomModel(loader, scene, [-1, 0, -5]),
-            addRandomModel(loader, scene, [-1, 1, -5]),
-            addRandomModel(loader, scene, [-1, -1, -5]),
-            addRandomModel(loader, scene, [0, 0, -5])
-        ]);
-    } catch (err) {
-        console.error("3Dモデルの読み込み中にエラーが発生しました:", err);
-        throw err;
-    }
-
-    onWindowResize(); // 初期値を計算
-
-    // アニメーションループの設定
-    renderer.setAnimationLoop(() => {
-        // キャッシュ化してフレーム内の重複計算を避ける
-        const detections: Detection[] = getDetections();
-        const boundingBoxCanvas = getBoundingBoxCanvas();
-        const boundingBoxCanvasWidth = boundingBoxCanvas ? boundingBoxCanvas.width || boundingBoxCanvas.clientWidth : 0;
-        const boundingBoxCanvasHeight = boundingBoxCanvas
-            ? boundingBoxCanvas.height || boundingBoxCanvas.clientHeight
-            : 0;
-        const hasValidBoundingBoxCanvas = boundingBoxCanvasWidth > 0 && boundingBoxCanvasHeight > 0;
-        const normalizedDetections: Array<{
-            minXNorm: number;
-            maxXNorm: number;
-            topYNorm: number;
-            bottomYNorm: number;
-        }> = hasValidBoundingBoxCanvas
-            ? detections.map((detection) => ({
-                minXNorm: detection.x1 / boundingBoxCanvasWidth,
-                maxXNorm: (detection.x1 + detection.width) / boundingBoxCanvasWidth,
-                topYNorm: detection.y1 / boundingBoxCanvasHeight,
-                bottomYNorm: (detection.y1 + detection.height) / boundingBoxCanvasHeight
-            }))
-            : [];
-        const detectionAspect = hasValidBoundingBoxCanvas
-            ? boundingBoxCanvasWidth / boundingBoxCanvasHeight
-            : camera.aspect;
-
-        const collisionFrustumWidth = frustumHeight * detectionAspect;
-        // 検出結果ボックスを衝突判定ボックスに変換
-        const collisionBoxes: CollisionBox[] = hasValidBoundingBoxCanvas
-            ? normalizedDetections.map((normalizedDetection) => {
-                const minX = (normalizedDetection.minXNorm - 0.5) * collisionFrustumWidth;
-                const maxX = (normalizedDetection.maxXNorm - 0.5) * collisionFrustumWidth;
-                const maxY = (0.5 - normalizedDetection.topYNorm) * frustumHeight;
-                const minY = (0.5 - normalizedDetection.bottomYNorm) * frustumHeight;
-
-                const boxCenterX = (maxX + minX) / 2;
-                const boxCenterY = (maxY + minY) / 2;
-                const boxHalfWidth = (maxX - minX) / 2;
-                const boxHalfHeight = (maxY - minY) / 2;
-
-                return { minX, maxX, minY, maxY, boxCenterX, boxCenterY, boxHalfWidth, boxHalfHeight };
-            })
-            : [];
-
-        // --- グリッド法による最適化 ---
-        // 1. グリッドをクリアし、衝突判定ボックスを登録する
-        grid.clear();
-        for (const box of collisionBoxes) {
-            // ボックスがまたがるセルの範囲を計算
-            const startCol = Math.floor((box.minX + visibleHalfWidth) / cellWidth);
-            const endCol = Math.floor((box.maxX + visibleHalfWidth) / cellWidth);
-            const startRow = Math.floor((box.minY + visibleHalfHeight) / cellHeight);
-            const endRow = Math.floor((box.maxY + visibleHalfHeight) / cellHeight);
-
-            // ボックスを該当するすべてのセルに登録
-            for (let r = startRow; r <= endRow; r++) {
-                for (let c = startCol; c <= endCol; c++) {
-                    const key = `${c},${r}`;
-                    if (!grid.has(key)) {
-                        grid.set(key, []);
-                    }
-                    grid.get(key)!.push(box);
-                }
-            }
+    function tick() {
+        // 画像の読み込みが完了するまでアニメーションを開始しない
+        if (logoImg.width === 0 || logoImg.height === 0 || dateImg.width === 0 || dateImg.height === 0) {
+            requestAnimationFrame(tick);
+            return;
         }
-        // --- グリッド法ここまで ---
 
-        modelsArray.forEach((model) => {
-            // 初回のみ回転軸をランダムに生成して userData に保存
-            if (!model.userData.axis) {
-                const axis = new THREE.Vector3(
-                    Math.random() * 2 - 1,
-                    Math.random() * 2 - 1,
-                    Math.random() * 2 - 1
-                ).normalize();
-                model.userData.axis = axis;
-            }
-            // 保存した軸で均等に回転
-            model.rotateOnAxis(model.userData.axis, 0.01);
+        const detections = getDetections();
 
-            // 初回のみ移動ベクトルをランダムに生成して userData に保存
-            if (!model.userData.moveDirection) {
-                const moveDirection = new THREE.Vector3(
-                    (Math.random() * 0.03 + 0.01) * (Math.random() < 0.5 ? -1 : 1),
-                    (Math.random() * 0.03 + 0.01) * (Math.random() < 0.5 ? -1 : 1),
-                    0
-                );
-                model.userData.moveDirection = moveDirection;
-            }
-            // 保存した移動ベクトルで平行移動
-            model.position.add(model.userData.moveDirection);
+        const collisionBoxes: CollisionBox[] = detections.map((d) => ({
+            x: d.x1 * containerWidth,
+            y: d.y1 * containerHeight,
+            width: (d.x2 - d.x1) * containerWidth,
+            height: (d.y2 - d.y1) * containerHeight
+        }));
 
-            // 画面外へ出たモデルを反対側へラップさせる
-            if (model.position.x > visibleHalfWidth) model.position.x = -visibleHalfWidth;
-            if (model.position.x < -visibleHalfWidth) model.position.x = visibleHalfWidth;
-            if (model.position.y > visibleHalfHeight) model.position.y = -visibleHalfHeight;
-            if (model.position.y < -visibleHalfHeight) model.position.y = visibleHalfHeight;
+        // logoImg の移動計算
+        const logoResult = calculateImageMovement(
+            logoPos.x,
+            logoPos.y,
+            logoVector,
+            logoImg.width,
+            logoImg.height,
+            containerWidth,
+            containerHeight,
+            collisionBoxes
+        );
+        logoPos = { x: logoResult.newX, y: logoResult.newY };
+        logoVector = logoResult.newVector;
 
-            // --- グリッド法による最適化 ---
-            // 2. モデルがいるセルと隣接セルから、衝突可能性のあるボックスを取得
-            const modelCol = Math.floor((model.position.x + visibleHalfWidth) / cellWidth);
-            const modelRow = Math.floor((model.position.y + visibleHalfHeight) / cellHeight);
+        // dateImg の移動計算
+        const dateResult = calculateImageMovement(
+            datePos.x,
+            datePos.y,
+            dateVector,
+            dateImg.width,
+            dateImg.height,
+            containerWidth,
+            containerHeight,
+            collisionBoxes
+        );
+        datePos = { x: dateResult.newX, y: dateResult.newY };
+        dateVector = dateResult.newVector;
 
-            const potentialColliders = new Set<CollisionBox>();
-            for (let r = modelRow - 1; r <= modelRow + 1; r++) {
-                for (let c = modelCol - 1; c <= modelCol + 1; c++) {
-                    const key = `${c},${r}`;
-                    if (grid.has(key)) {
-                        for (const box of grid.get(key)!) {
-                            potentialColliders.add(box);
-                        }
-                    }
-                }
-            }
+        // DOM更新を transform で一括で行う
+        logoImg.style.transform = `translate(${logoPos.x}px, ${logoPos.y}px)`;
+        dateImg.style.transform = `translate(${datePos.x}px, ${datePos.y}px)`;
 
-            // 3. 衝突可能性のあるボックスとのみ衝突判定を実行
-            potentialColliders.forEach((collisionBox) => {
-                // --- グリッド法ここまで ---
-                // 各衝突判定ボックスの各パラメータは事前計算済み
-                const { boxCenterX, boxCenterY, boxHalfWidth, boxHalfHeight } = collisionBox;
-                const modelHalfSize = 0.1; // モデルの大きさの半分(ざっくりとした球体として扱う)
-
-                // 衝突判定ボックスの中心からモデルの位置までのベクトル
-                const dx = model.position.x - boxCenterX;
-                const dy = model.position.y - boxCenterY;
-
-                if (boxHalfWidth === 0 || boxHalfHeight === 0) return; // 衝突判定ボックスの幅または高さが0の場合、処理を中断
-                // 衝突判定ボックスのサイズで正規化
-                const scaledDx = dx / boxHalfWidth;
-                const scaledDy = dy / boxHalfHeight;
-
-                // 衝突判定
-                if (
-                    // AABB（軸並行境界ボックス）での衝突判定
-                    model.position.x + modelHalfSize > collisionBox.minX &&
-                    model.position.x - modelHalfSize < collisionBox.maxX &&
-                    model.position.y + modelHalfSize > collisionBox.minY &&
-                    model.position.y - modelHalfSize < collisionBox.maxY
-                ) {
-                    // 衝突したとき
-                    if (Math.abs(scaledDx) > Math.abs(scaledDy)) {
-                        // 左右方向から衝突
-                        model.userData.moveDirection.x *= -1; // X方向の移動ベクトルを反転
-
-                        // 衝突判定ボックスの内側に入り込んだ場合、外側に押し出す
-                        if (model.position.x < boxCenterX) {
-                            // モデルが衝突判定ボックスの左側にいる場合
-                            model.position.x = collisionBox.minX - modelHalfSize;
-                        } else {
-                            // モデルが衝突判定ボックスの右側にいる場合
-                            model.position.x = collisionBox.maxX + modelHalfSize;
-                        }
-                    } else {
-                        // 上下方向から衝突
-                        model.userData.moveDirection.y *= -1; // Y方向の移動ベクトルを反転
-
-                        // 衝突判定ボックスの内側に入り込んだ場合、外側に押し出す
-                        if (model.position.y < boxCenterY) {
-                            // モデルが衝突判定ボックスの下側にいる場合
-                            model.position.y = collisionBox.minY - modelHalfSize;
-                        } else {
-                            // モデルが衝突判定ボックスの上側にいる場合
-                            model.position.y = collisionBox.maxY + modelHalfSize;
-                        }
-                    }
-                }
-            });
-        });
-        renderer.render(scene, camera);
-    });
+        requestAnimationFrame(tick);
+    }
+    tick();
 }

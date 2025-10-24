@@ -1,4 +1,4 @@
-import type { Detection } from "./inferOnnxModel";
+import type { Detection } from "./inferOnnxModel.ts";
 
 export default function drawDetections(
     detections: Detection[],
@@ -16,7 +16,12 @@ export default function drawDetections(
     ctx.lineWidth = 5;
 
     detections.forEach((det: Detection) => {
-        const { x1, y1, width, height } = det;
-        ctx.strokeRect(x1, y1, width, height);
+        const { x1, y1, x2, y2 } = det;
+        ctx.strokeRect(
+            canvasWidth * x1,
+            canvasHeight * y1,
+            canvasWidth * (x2 - x1),
+            canvasHeight * (y2 - y1)
+        );
     });
 }

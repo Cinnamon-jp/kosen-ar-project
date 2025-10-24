@@ -1,20 +1,15 @@
 // HTML要素の取得
 const video = document.getElementById("video") as HTMLVideoElement;
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+const imgContainer = document.getElementById("img-container") as HTMLDivElement;
 const captureButton = document.getElementById("capture-button") as HTMLButtonElement;
 const onnxLogo = document.getElementById("onnx-logo") as HTMLImageElement;
-const threeCanvas = document.getElementById("three-container") as HTMLCanvasElement;
-
-// セッター関数
-export function getBoundingBoxCanvas(): HTMLCanvasElement {
-    return canvas;
-}
 
 // 関数のインポート
 import startCamera from "./functions/startCamera.ts";
-import inferOnnxModel from "./functions/inferOnnxModel.ts";
+// 推論を実行する Web Worker
+const inferWorker = new Worker(new URL("./worker/inferWorker.ts", import.meta.url), { type: "module" });
 import drawDetections from "./functions/drawDetections.ts";
-import createOnnxSession from "./functions/createOnnxSession.ts";
 import animate from "./functions/animate.ts";
 import takePicture from "./functions/takePicture.ts";
 
@@ -22,28 +17,19 @@ import takePicture from "./functions/takePicture.ts";
 import type { Detection } from "./functions/inferOnnxModel.ts";
 
 async function main(): Promise<void> {
-    // バウンディングボックス描画コンテキストの取得
     const ctx = canvas.getContext("2d", {});
 
-    // モデル推論用に一時的なcanvasを作成
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.style.display = "none"; // 非表示
-    // 一時canvasを640x640に設定
-    tempCanvas.width = 640;
-    tempCanvas.height = 640;
-    // 一時キャンバスの描画コンテキストを取得
-    const tempCtx = tempCanvas.getContext("2d", {
-        willReadFrequently: true, // 読み取り用に最適化
-        desynchronized: true, // レイテンシを抑えて連続描画に最適化
-        alpha: false // アルファ合成処理を省略して描画コストを下げる
-    });
-
-    // 使用するONNXモデルURLの指定
+    // ONNXモデル用 Web Worker を初期化
     const modelUrl = `${import.meta.env.BASE_URL}models/yolo11n_half.onnx`;
-    // ONNXセッションの作成
-    onnxLogo.style.display = "block"; // ローディングアイコンを表示
-    const session = await createOnnxSession(modelUrl);
-    onnxLogo.style.display = "none"; // ローディングアイコンを非表示
+    onnxLogo.style.display = "block";
+    await new Promise<void>((resolve) => {
+        inferWorker.onmessage = (e: MessageEvent) => {
+            if (e.data.type === "initDone") resolve();
+        };
+        inferWorker.postMessage({ type: "init", modelUrl });
+    });
+    onnxLogo.style.display = "none";
+
     // 抽出したいクラスID [0, 79]の整数 (空配列なら全クラス対象)
     const targetClasses: number[] = [0];
 
@@ -65,35 +51,33 @@ async function main(): Promise<void> {
         return results;
     }
 
-    // 3D描画の開始
-    try {
-        await animate(threeCanvas, getDetections);
-    } catch (err) {
-        console.error("3D描画中にエラーが発生しました:", err);
-        throw err;
-    }
-
     captureButton.addEventListener("click", () => {
         try {
-            takePicture(video, threeCanvas);
+            takePicture(video, imgContainer);
         } catch (err) {
             console.error("写真撮影中にエラーが発生しました:", err);
             throw err;
         }
     });
 
+    // アニメーションの開始
+    animate(imgContainer, getDetections);
+
     // 100msごとに推論と描画を繰り返す
     while (true) {
         try {
-            // ONNXモデルの推論実行
-            results = await inferOnnxModel(session, video, tempCanvas, tempCtx, targetClasses);
-            // バウンディングボックスの描画
+            const bitmap = await createImageBitmap(video);
+            results = await new Promise<Detection[]>((resolve) => {
+                inferWorker.onmessage = (e: MessageEvent) => {
+                    if (e.data.type === "inferResult") resolve(e.data.detections);
+                };
+                inferWorker.postMessage({ type: "infer", bitmap, targetClasses }, [bitmap]);
+            });
             drawDetections(results, ctx, canvas.width, canvas.height);
         } catch (err) {
             console.error("ONNXモデルの推論中にエラーが発生しました:", err);
-            // throw err; // エラーが発生してループが止まるためコメントアウト
         }
-        await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms待機
+        await new Promise((resolve) => setTimeout(resolve, 50));
     }
 }
 main().catch((err) => {

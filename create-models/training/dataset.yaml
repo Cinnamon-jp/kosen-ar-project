@@ -1,7 +1,0 @@
-path: ./data # データセットのルートディレクトリ
-train: images/train # トレーニング用の画像ディレクトリ（pathからの相対パス）
-val: images/val # バリデーション用の画像ディレクトリ（pathからの相対パス）
-
-nc: 1 # クラス数
-names: # クラス名のリスト
-  0: cinnamon

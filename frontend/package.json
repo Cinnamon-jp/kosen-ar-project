@@ -11,15 +11,12 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "@types/three": "^0.180.0",
     "prettier": "^3.6.2",
     "typescript": "~5.8.3",
     "vite": "^7.1.2",
-    "vite-plugin-cdn-import": "^1.0.1",
     "vite-plugin-mkcert": "^1.17.8"
   },
   "dependencies": {
-    "onnxruntime-web": "^1.23.0",
-    "three": "^0.180.0"
+    "onnxruntime-web": "^1.23.0"
   }
 }
