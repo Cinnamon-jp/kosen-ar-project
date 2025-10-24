@@ -21,99 +21,99 @@ interface CollisionBox {
     height: number;
 }
 
-// Quad-treeノード
-class QuadTreeNode {
-    bounds: CollisionBox;
-    boxes: CollisionBox[];
-    children: QuadTreeNode[] | null;
-    maxBoxes: number;
-    maxDepth: number;
-    depth: number;
+// // Quad-treeノード
+// class QuadTreeNode {
+//     bounds: CollisionBox;
+//     boxes: CollisionBox[];
+//     children: QuadTreeNode[] | null;
+//     maxBoxes: number;
+//     maxDepth: number;
+//     depth: number;
 
-    constructor(bounds: CollisionBox, depth: number = 0, maxBoxes: number = 4, maxDepth: number = 5) {
-        this.bounds = bounds;
-        this.boxes = [];
-        this.children = null;
-        this.maxBoxes = maxBoxes;
-        this.maxDepth = maxDepth;
-        this.depth = depth;
-    }
+//     constructor(bounds: CollisionBox, depth: number = 0, maxBoxes: number = 4, maxDepth: number = 5) {
+//         this.bounds = bounds;
+//         this.boxes = [];
+//         this.children = null;
+//         this.maxBoxes = maxBoxes;
+//         this.maxDepth = maxDepth;
+//         this.depth = depth;
+//     }
 
-    // ボックスを挿入
-    insert(box: CollisionBox): void {
-        // 境界外なら挿入しない
-        if (!this.intersects(this.bounds, box)) {
-            return;
-        }
+//     // ボックスを挿入
+//     insert(box: CollisionBox): void {
+//         // 境界外なら挿入しない
+//         if (!this.intersects(this.bounds, box)) {
+//             return;
+//         }
 
-        // 子ノードがある場合は子に委譲
-        if (this.children !== null) {
-            for (const child of this.children) {
-                child.insert(box);
-            }
-            return;
-        }
+//         // 子ノードがある場合は子に委譲
+//         if (this.children !== null) {
+//             for (const child of this.children) {
+//                 child.insert(box);
+//             }
+//             return;
+//         }
 
-        // 現在のノードに追加
-        this.boxes.push(box);
+//         // 現在のノードに追加
+//         this.boxes.push(box);
 
-        // 分割条件: 最大数を超え、かつ最大深度に達していない
-        if (this.boxes.length > this.maxBoxes && this.depth < this.maxDepth) {
-            this.subdivide();
-        }
-    }
+//         // 分割条件: 最大数を超え、かつ最大深度に達していない
+//         if (this.boxes.length > this.maxBoxes && this.depth < this.maxDepth) {
+//             this.subdivide();
+//         }
+//     }
 
-    // ノードを4分割
-    subdivide(): void {
-        const { x, y, width, height } = this.bounds;
-        const halfWidth = width / 2;
-        const halfHeight = height / 2;
+//     // ノードを4分割
+//     subdivide(): void {
+//         const { x, y, width, height } = this.bounds;
+//         const halfWidth = width / 2;
+//         const halfHeight = height / 2;
 
-        this.children = [
-            new QuadTreeNode({ x, y, width: halfWidth, height: halfHeight }, this.depth + 1, this.maxBoxes, this.maxDepth),
-            new QuadTreeNode({ x: x + halfWidth, y, width: halfWidth, height: halfHeight }, this.depth + 1, this.maxBoxes, this.maxDepth),
-            new QuadTreeNode({ x, y: y + halfHeight, width: halfWidth, height: halfHeight }, this.depth + 1, this.maxBoxes, this.maxDepth),
-            new QuadTreeNode({ x: x + halfWidth, y: y + halfHeight, width: halfWidth, height: halfHeight }, this.depth + 1, this.maxBoxes, this.maxDepth)
-        ];
+//         this.children = [
+//             new QuadTreeNode({ x, y, width: halfWidth, height: halfHeight }, this.depth + 1, this.maxBoxes, this.maxDepth),
+//             new QuadTreeNode({ x: x + halfWidth, y, width: halfWidth, height: halfHeight }, this.depth + 1, this.maxBoxes, this.maxDepth),
+//             new QuadTreeNode({ x, y: y + halfHeight, width: halfWidth, height: halfHeight }, this.depth + 1, this.maxBoxes, this.maxDepth),
+//             new QuadTreeNode({ x: x + halfWidth, y: y + halfHeight, width: halfWidth, height: halfHeight }, this.depth + 1, this.maxBoxes, this.maxDepth)
+//         ];
 
-        // 既存のボックスを子ノードに再配置
-        for (const box of this.boxes) {
-            for (const child of this.children) {
-                child.insert(box);
-            }
-        }
-        this.boxes = [];
-    }
+//         // 既存のボックスを子ノードに再配置
+//         for (const box of this.boxes) {
+//             for (const child of this.children) {
+//                 child.insert(box);
+//             }
+//         }
+//         this.boxes = [];
+//     }
 
-    // 範囲と交差するボックスを取得
-    query(range: CollisionBox, result: CollisionBox[] = []): CollisionBox[] {
-        // 範囲外なら何もしない
-        if (!this.intersects(this.bounds, range)) {
-            return result;
-        }
+//     // 範囲と交差するボックスを取得
+//     query(range: CollisionBox, result: CollisionBox[] = []): CollisionBox[] {
+//         // 範囲外なら何もしない
+//         if (!this.intersects(this.bounds, range)) {
+//             return result;
+//         }
 
-        // 子ノードがある場合は子に問い合わせ
-        if (this.children !== null) {
-            for (const child of this.children) {
-                child.query(range, result);
-            }
-        } else {
-            // リーフノードの場合、ボックスをチェック
-            for (const box of this.boxes) {
-                if (this.intersects(range, box)) {
-                    result.push(box);
-                }
-            }
-        }
+//         // 子ノードがある場合は子に問い合わせ
+//         if (this.children !== null) {
+//             for (const child of this.children) {
+//                 child.query(range, result);
+//             }
+//         } else {
+//             // リーフノードの場合、ボックスをチェック
+//             for (const box of this.boxes) {
+//                 if (this.intersects(range, box)) {
+//                     result.push(box);
+//                 }
+//             }
+//         }
 
-        return result;
-    }
+//         return result;
+//     }
 
-    // 2つのボックスが交差しているかチェック
-    intersects(a: CollisionBox, b: CollisionBox): boolean {
-        return !(a.x + a.width < b.x || b.x + b.width < a.x || a.y + a.height < b.y || b.y + b.height < a.y);
-    }
-}
+//     // 2つのボックスが交差しているかチェック
+//     intersects(a: CollisionBox, b: CollisionBox): boolean {
+//         return !(a.x + a.width < b.x || b.x + b.width < a.x || a.y + a.height < b.y || b.y + b.height < a.y);
+//     }
+// }
 
 // ベクトル用と初期位置用のランダムな数値を生成する関数（min～max を含む）
 function getRandomNumber(
@@ -168,8 +168,8 @@ function calculateImageMovement(
     imageHeight: number,
     containerWidth: number,
     containerHeight: number,
-    collisionBoxes: CollisionBox[],
-    quadTree: QuadTreeNode | null = null
+    // collisionBoxes: CollisionBox[],
+    // quadTree: QuadTreeNode | null = null
 ): { newX: number; newY: number; newVector: [number, number] } {
     let x = currentX;
     let y = currentY;
@@ -195,52 +195,52 @@ function calculateImageMovement(
         dy = -dy;
     }
 
-    // 衝突判定ボックスとの衝突判定
-    // Quad-treeがある場合は範囲クエリで近傍のボックスのみチェック
-    const boxesToCheck = quadTree !== null
-        ? quadTree.query({ x, y, width: imageWidth, height: imageHeight })
-        : collisionBoxes;
+    // // 衝突判定ボックスとの衝突判定
+    // // Quad-treeがある場合は範囲クエリで近傍のボックスのみチェック
+    // const boxesToCheck = quadTree !== null
+    //     ? quadTree.query({ x, y, width: imageWidth, height: imageHeight })
+    //     : collisionBoxes;
 
-    for (const box of boxesToCheck) {
-        if (x < box.x + box.width && x + imageWidth > box.x && y < box.y + box.height && y + imageHeight > box.y) {
-            // 画像とボックスの中心座標
-            const imgCenterX = x + imageWidth / 2;
-            const imgCenterY = y + imageHeight / 2;
-            const boxCenterX = box.x + box.width / 2;
-            const boxCenterY = box.y + box.height / 2;
+    // for (const box of boxesToCheck) {
+    //     if (x < box.x + box.width && x + imageWidth > box.x && y < box.y + box.height && y + imageHeight > box.y) {
+    //         // 画像とボックスの中心座標
+    //         const imgCenterX = x + imageWidth / 2;
+    //         const imgCenterY = y + imageHeight / 2;
+    //         const boxCenterX = box.x + box.width / 2;
+    //         const boxCenterY = box.y + box.height / 2;
 
-            // 中心間の距離
-            const diffX = imgCenterX - boxCenterX;
-            const diffY = imgCenterY - boxCenterY;
+    //         // 中心間の距離
+    //         const diffX = imgCenterX - boxCenterX;
+    //         const diffY = imgCenterY - boxCenterY;
 
-            // 重なりを計算
-            const overlapX = imageWidth / 2 + box.width / 2 - Math.abs(diffX);
-            const overlapY = imageHeight / 2 + box.height / 2 - Math.abs(diffY);
+    //         // 重なりを計算
+    //         const overlapX = imageWidth / 2 + box.width / 2 - Math.abs(diffX);
+    //         const overlapY = imageHeight / 2 + box.height / 2 - Math.abs(diffY);
 
-            // X方向の重なりの方がY方向の重なりより大きい場合、Y方向の速度を反転（横の辺との衝突）
-            if (overlapX > overlapY) {
-                if (diffY < 0) {
-                    // 画像の中心がボックスの中心より上
-                    y -= overlapY; // 上に押し出す
-                } else {
-                    y += overlapY; // 下に押し出す
-                }
-                dy = -dy;
-            } else {
-                // Y方向の重なりの方が大きい、または等しい場合、X方向の速度を反転（縦の辺との衝突）
-                if (diffX < 0) {
-                    // 画像の中心がボックスの中心より左
-                    x -= overlapX; // 左に押し出す
-                } else {
-                    x += overlapX; // 右に押し出す
-                }
-                dx = -dx;
-            }
+    //         // X方向の重なりの方がY方向の重なりより大きい場合、Y方向の速度を反転（横の辺との衝突）
+    //         if (overlapX > overlapY) {
+    //             if (diffY < 0) {
+    //                 // 画像の中心がボックスの中心より上
+    //                 y -= overlapY; // 上に押し出す
+    //             } else {
+    //                 y += overlapY; // 下に押し出す
+    //             }
+    //             dy = -dy;
+    //         } else {
+    //             // Y方向の重なりの方が大きい、または等しい場合、X方向の速度を反転（縦の辺との衝突）
+    //             if (diffX < 0) {
+    //                 // 画像の中心がボックスの中心より左
+    //                 x -= overlapX; // 左に押し出す
+    //             } else {
+    //                 x += overlapX; // 右に押し出す
+    //             }
+    //             dx = -dx;
+    //         }
 
-            // 1つのボックスと衝突したらループを抜ける
-            break;
-        }
-    }
+    //         // 1つのボックスと衝突したらループを抜ける
+    //         break;
+    //     }
+    // }
 
     return { newX: x, newY: y, newVector: [dx, dy] };
 }
@@ -300,8 +300,8 @@ export default function animate(
 
     // collision box配列を再利用するための変数
     let collisionBoxes: CollisionBox[] = [];
-    // Quad-treeを使用する閾値（ボックス数がこれ以上の場合にQuad-treeを使用）
-    const QUADTREE_THRESHOLD = 5;
+    // // Quad-treeを使用する閾値（ボックス数がこれ以上の場合にQuad-treeを使用）
+    // const QUADTREE_THRESHOLD = 5;
 
     function tick() {
         // 画像の読み込みが完了するまでアニメーションを開始しない（初回のみチェック）
@@ -332,19 +332,19 @@ export default function animate(
             collisionBoxes[i].height = (d.y2 - d.y1) * containerHeight;
         }
 
-        // Quad-treeの構築（ボックス数が閾値を超える場合のみ）
-        let quadTree: QuadTreeNode | null = null;
-        if (collisionBoxes.length > QUADTREE_THRESHOLD) {
-            quadTree = new QuadTreeNode({
-                x: 0,
-                y: 0,
-                width: containerWidth,
-                height: containerHeight
-            });
-            for (const box of collisionBoxes) {
-                quadTree.insert(box);
-            }
-        }
+        // // Quad-treeの構築（ボックス数が閾値を超える場合のみ）
+        // let quadTree: QuadTreeNode | null = null;
+        // if (collisionBoxes.length > QUADTREE_THRESHOLD) {
+        //     quadTree = new QuadTreeNode({
+        //         x: 0,
+        //         y: 0,
+        //         width: containerWidth,
+        //         height: containerHeight
+        //     });
+        //     for (const box of collisionBoxes) {
+        //         quadTree.insert(box);
+        //     }
+        // }
 
         // logoImg の移動計算
         const logoResult = calculateImageMovement(
@@ -355,8 +355,8 @@ export default function animate(
             logoImg.height,
             containerWidth,
             containerHeight,
-            collisionBoxes,
-            quadTree
+            // collisionBoxes,
+            // quadTree
         );
         logoPos = { x: logoResult.newX, y: logoResult.newY };
         logoVector = logoResult.newVector;
@@ -370,8 +370,8 @@ export default function animate(
             dateImg.height,
             containerWidth,
             containerHeight,
-            collisionBoxes,
-            quadTree
+            // collisionBoxes,
+            // quadTree
         );
         datePos = { x: dateResult.newX, y: dateResult.newY };
         dateVector = dateResult.newVector;
