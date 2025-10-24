@@ -30,12 +30,27 @@ export default function takePicture(
     }
 
     // 一時的なキャンバスを作成（高解像度で作成）
-    // 解像度を2倍にして画質を向上
-    const scaleFactor = 2;
+    // ビデオの実際の解像度をそのまま使用（カメラの高画質を保つ）
     const tempCanvas = document.createElement("canvas");
     tempCanvas.style.display = "none"; // 非表示
-    tempCanvas.width = viewportWidth * scaleFactor;
-    tempCanvas.height = viewportHeight * scaleFactor;
+    
+    // object-fit: cover でトリミングされた部分のサイズを計算
+    // （ビューポートのアスペクト比を保ちつつ、ビデオの解像度を活かす）
+    let outputWidth: number;
+    let outputHeight: number;
+    
+    if (videoAspect > viewportAspect) {
+        // ビデオの方が横長 → 高さを基準にする
+        outputHeight = videoHeight;
+        outputWidth = videoHeight * viewportAspect;
+    } else {
+        // ビデオの方が縦長 → 幅を基準にする
+        outputWidth = videoWidth;
+        outputHeight = videoWidth / viewportAspect;
+    }
+    
+    tempCanvas.width = Math.round(outputWidth);
+    tempCanvas.height = Math.round(outputHeight);
 
     const tempCtx = tempCanvas.getContext("2d", {
         alpha: false, // アルファチャンネル不要で高速化
@@ -51,11 +66,15 @@ export default function takePicture(
     tempCtx.drawImage(
         video,
         srcX, srcY, srcWidth, srcHeight,  // ソース（ビデオから切り取る範囲）
-        0, 0, viewportWidth * scaleFactor, viewportHeight * scaleFactor  // デスティネーション（キャンバス全体）
+        0, 0, tempCanvas.width, tempCanvas.height  // デスティネーション（キャンバス全体）
     );
 
     // imgContainer内の画像を取得
     const images = imgContainer.getElementsByTagName("img");
+
+    // ビューポートとキャンバスのスケール比を計算
+    const scaleX = tempCanvas.width / viewportWidth;
+    const scaleY = tempCanvas.height / viewportHeight;
 
     // 各画像を描画
     for (const img of images) {
@@ -77,13 +96,13 @@ export default function takePicture(
         const width = img.width;
         const height = img.height;
 
-        // 画面表示と同じ座標系で描画（スケールファクターを適用）
+        // 画面表示と同じ座標系で描画（スケール比を適用）
         tempCtx.drawImage(
             img,
-            x * scaleFactor,
-            y * scaleFactor,
-            width * scaleFactor,
-            height * scaleFactor
+            x * scaleX,
+            y * scaleY,
+            width * scaleX,
+            height * scaleY
         );
     }
 
